@@ -1,12 +1,18 @@
 import { config } from '../config';
 import { searchOne, upsert } from '../clients/airtable';
 import { freeBusy, createTentativeEvent } from '../clients/googleCalendar';
+import { listarTiposCita, buscarTipoCita } from './tiposCita';
 import { CrearHoldInput } from '../types';
 
 interface ClientesAgendaFields {
+  cliente: string;
   calendar_id: string;
   timezone?: string;
   prefijo_hold?: string;
+}
+
+interface ClientesFields {
+  phone_number_id: string;
 }
 
 export type CrearHoldResultado =
@@ -41,6 +47,20 @@ export async function crearHold(
   const tz = timezone || 'Europe/Madrid';
   const prefijoHold = clienteAgenda.fields.prefijo_hold || '[PENDIENTE CONFIRMAR]';
 
+  const clienteRecord = await searchOne<ClientesFields>(
+    config.airtable.tableClientes,
+    `{phone_number_id} = '${ctx.phoneNumberId}'`
+  );
+  if (!clienteRecord) {
+    throw new Error(`Clientes: no se encontro registro para phone_number_id ${ctx.phoneNumberId}`);
+  }
+
+  const tipos = await listarTiposCita(clienteAgenda.fields.cliente);
+  const tipoCitaRecord = buscarTipoCita(tipos, input.tipo_cita);
+  if (!tipoCitaRecord) {
+    throw new Error(`TiposCita: no se encontro "${input.tipo_cita}" para el cliente ${clienteAgenda.fields.cliente}`);
+  }
+
   const NO_DISPONIBLE: CrearHoldResultado = {
     ok: false,
     error: 'hueco_no_disponible',
@@ -74,15 +94,15 @@ export async function crearHold(
       conv_id: ctx.convId,
       wa_id: ctx.waId,
       phone_number_id: ctx.phoneNumberId,
-      cliente: ctx.clienteNombre,
-      tipo_cita: input.tipo_cita,
+      cliente: [clienteRecord.id],
+      tipo_cita: [tipoCitaRecord.id],
       inicio: input.inicio,
       fin: input.fin,
       nombre: input.nombre,
       telefono: input.telefono,
       event_id: eventId,
       calendar_id,
-      estado: 'pendiente',
+      estado: 'activa',
       notificado: false,
       creado_en: new Date().toISOString(),
     },

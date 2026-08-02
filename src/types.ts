@@ -23,7 +23,12 @@ export interface AgentRunRequest {
 export interface AgentRunSuccess {
   respuesta_texto: string;
   delta_messages: ClaudeMessage[];
-  herramienta_usada: 'consultar_disponibilidad' | 'crear_hold' | null;
+  herramienta_usada:
+    | 'consultar_disponibilidad'
+    | 'crear_hold'
+    | 'cancelar_cita'
+    | 'reprogramar_cita'
+    | null;
 }
 
 export interface AgentRunError {
@@ -44,4 +49,16 @@ export interface CrearHoldInput {
   tipo_cita: string;
   nombre: string;
   telefono: string;
+}
+
+export interface CancelarCitaInput {
+  telefono: string;
+  inicio?: string;
+}
+
+export interface ReprogramarCitaInput {
+  telefono: string;
+  inicio?: string;
+  nuevo_inicio: string;
+  nuevo_fin: string;
 }

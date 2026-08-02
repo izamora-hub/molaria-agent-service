@@ -53,3 +53,16 @@ export async function createTentativeEvent(params: {
   });
   return { eventId: res.data.id! };
 }
+
+export async function deleteEvent(calendarId: string, eventId: string): Promise<void> {
+  try {
+    await calendar.events.delete({ calendarId, eventId });
+  } catch (err) {
+    // Ya borrado o inexistente (p.ej. reintento tras un fallo previo a mitad de
+    // camino): no es un fallo real de cancelacion, el resultado que importa
+    // (evento fuera del calendario) ya se cumple.
+    const status = (err as { code?: number; status?: number }).code ?? (err as { status?: number }).status;
+    if (status === 404 || status === 410) return;
+    throw err;
+  }
+}

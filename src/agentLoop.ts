@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { callClaude } from './clients/anthropic';
 import { consultarDisponibilidad } from './tools/consultarDisponibilidad';
 import { crearHold } from './tools/crearHold';
+import { cancelarCita } from './tools/cancelarCita';
+import { reprogramarCita } from './tools/reprogramarCita';
 import { AgentRunRequest, AgentRunSuccess, ClaudeMessage } from './types';
 
 // Limite de vueltas del loop real. A diferencia de n8n (donde el loop estaba
@@ -22,6 +24,12 @@ async function ejecutarHerramienta(
   }
   if (bloque.name === 'crear_hold') {
     return crearHold({ ...ctx, toolUseId: bloque.id }, bloque.input as never);
+  }
+  if (bloque.name === 'cancelar_cita') {
+    return cancelarCita(ctx, bloque.input as never);
+  }
+  if (bloque.name === 'reprogramar_cita') {
+    return reprogramarCita({ ...ctx, toolUseId: bloque.id }, bloque.input as never);
   }
   throw new Error(`Herramienta desconocida: ${bloque.name}`);
 }

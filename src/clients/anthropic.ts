@@ -59,6 +59,56 @@ export const TOOLS = [
       required: ['inicio', 'fin', 'tipo_cita', 'nombre', 'telefono'],
     },
   },
+  {
+    name: 'cancelar_cita',
+    description:
+      'Cancela una cita activa del paciente. Invocala en cuanto el paciente pida cancelar y te haya dado su telefono. Si hay mas de una cita activa con ese telefono, la herramienta te devolvera una lista para que le preguntes al paciente por cual fecha, y debes volver a invocarla pasando el campo inicio con el valor EXACTO de la opcion elegida. Si el plazo de cancelacion de la clinica ya se ha cumplido, te lo indicara para que derives al paciente a la clinica.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        telefono: {
+          type: 'string',
+          description: 'Telefono con el que el paciente reservo la cita, tal como lo ha dado ahora.',
+        },
+        inicio: {
+          type: 'string',
+          description:
+            'Solo cuando la herramienta te haya devuelto varias opciones para desambiguar: copia aqui, LITERALMENTE, el campo "inicio" de la opcion que el paciente ha elegido. Omitelo en la primera llamada.',
+        },
+      },
+      required: ['telefono'],
+    },
+  },
+  {
+    name: 'reprogramar_cita',
+    description:
+      'Mueve la cita activa del paciente a un hueco nuevo: crea una SOLICITUD de cita en el hueco nuevo (pendiente de confirmacion por la clinica, igual que crear_hold) y solo entonces cancela la anterior. Invocala solo cuando ya tengas el telefono con el que reservo y el hueco nuevo elegido (obtenido con consultar_disponibilidad). Si hay mas de una cita activa con ese telefono, te devolvera una lista para desambiguar por fecha, igual que cancelar_cita: vuelve a invocarla con el campo inicio EXACTO de la opcion elegida. Si el plazo de cancelacion ya se ha cumplido, te lo indicara para derivar a la clinica. Si el hueco nuevo elegido ya no esta libre, la cita original queda intacta (no se pierde) y debes ofrecer otros huecos y volver a invocar la herramienta.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        telefono: {
+          type: 'string',
+          description: 'Telefono con el que el paciente reservo la cita que quiere mover.',
+        },
+        inicio: {
+          type: 'string',
+          description:
+            'Solo para desambiguar cuando la herramienta te haya devuelto varias opciones: copia aqui, LITERALMENTE, el "inicio" de la cita elegida. Omitelo en la primera llamada.',
+        },
+        nuevo_inicio: {
+          type: 'string',
+          description:
+            'Fecha y hora de inicio del hueco nuevo, COPIADA LITERALMENTE del campo "inicio" que devolvio consultar_disponibilidad. No la recalcules ni cambies su formato.',
+        },
+        nuevo_fin: {
+          type: 'string',
+          description:
+            'Fecha y hora de fin del hueco nuevo, COPIADA LITERALMENTE del campo "fin" que devolvio consultar_disponibilidad. No la recalcules ni cambies su formato.',
+        },
+      },
+      required: ['telefono', 'nuevo_inicio', 'nuevo_fin'],
+    },
+  },
 ];
 
 function withCache(messages: ClaudeMessage[]): ClaudeMessage[] {

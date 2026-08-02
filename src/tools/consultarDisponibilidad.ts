@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon';
 import { config } from '../config';
-import { searchOne, searchAll } from '../clients/airtable';
+import { searchOne } from '../clients/airtable';
 import { freeBusy } from '../clients/googleCalendar';
-import { calcularHuecos, norm, Ventana } from './huecos';
+import { calcularHuecos, Ventana } from './huecos';
+import { listarTiposCita, buscarTipoCita } from './tiposCita';
 import { ConsultarDisponibilidadInput } from '../types';
 
 interface ClientesAgendaFields {
@@ -12,16 +13,6 @@ interface ClientesAgendaFields {
   antelacion_min_horas: number;
   calendar_id: string;
   activo: boolean;
-}
-
-interface TipoCitaFields {
-  nombre_tipo: string;
-  duracion_min: number;
-  colchon_min?: number;
-  redondeo_min?: number;
-  dias_reservables?: string[];
-  hora_inicio: string;
-  hora_fin: string;
 }
 
 export type ConsultarDisponibilidadResultado =
@@ -50,19 +41,8 @@ export async function consultarDisponibilidad(
   }
   const cliente = clienteAgenda.fields;
 
-  const tipos = await searchAll<TipoCitaFields>(
-    config.airtable.tableTiposCita,
-    `{cliente} = "${cliente.cliente}"`
-  );
-
-  const pedido = norm(input.tipo_cita);
-  let tipo = tipos.find((t) => norm(t.fields.nombre_tipo) === pedido)?.fields;
-  if (!tipo) {
-    tipo = tipos.find((t) => {
-      const n = norm(t.fields.nombre_tipo);
-      return n.includes(pedido) || pedido.includes(n);
-    })?.fields;
-  }
+  const tipos = await listarTiposCita(cliente.cliente);
+  const tipo = buscarTipoCita(tipos, input.tipo_cita)?.fields;
   if (!tipo) {
     const tiposValidos = tipos.map((t) => t.fields.nombre_tipo);
     return {

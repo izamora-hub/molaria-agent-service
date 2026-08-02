@@ -1,6 +1,6 @@
 import { config } from '../config';
 
-interface AirtableRecord<F = Record<string, unknown>> {
+export interface AirtableRecord<F = Record<string, unknown>> {
   id: string;
   createdTime: string;
   fields: F;
@@ -57,6 +57,31 @@ export async function upsert<F extends Record<string, unknown>>(
 ): Promise<AirtableRecord<F>> {
   const data = await airtableRequest<{ records: AirtableRecord<F>[] }>('PATCH', tableId, {
     performUpsert: { fieldsToMergeOn: [matchOn] },
+    records: [{ fields }],
+  });
+  return data.records[0];
+}
+
+export async function getById<F = Record<string, unknown>>(
+  tableId: string,
+  recordId: string
+): Promise<AirtableRecord<F>> {
+  return airtableRequest<AirtableRecord<F>>('GET', `${tableId}/${recordId}`);
+}
+
+export async function updateById<F = Record<string, unknown>>(
+  tableId: string,
+  recordId: string,
+  fields: Partial<F>
+): Promise<AirtableRecord<F>> {
+  return airtableRequest<AirtableRecord<F>>('PATCH', `${tableId}/${recordId}`, { fields });
+}
+
+export async function create<F extends Record<string, unknown>>(
+  tableId: string,
+  fields: F
+): Promise<AirtableRecord<F>> {
+  const data = await airtableRequest<{ records: AirtableRecord<F>[] }>('POST', tableId, {
     records: [{ fields }],
   });
   return data.records[0];
