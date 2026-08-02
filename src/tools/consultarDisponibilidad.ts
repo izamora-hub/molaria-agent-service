@@ -2,8 +2,9 @@ import { DateTime } from 'luxon';
 import { config } from '../config';
 import { searchOne } from '../clients/airtable';
 import { freeBusy } from '../clients/googleCalendar';
-import { calcularHuecos, Ventana } from './huecos';
+import { calcularHuecos, HorarioSemana, Ventana } from './huecos';
 import { listarTiposCita, buscarTipoCita } from './tiposCita';
+import { buscarCliente } from './citas';
 import { ConsultarDisponibilidadInput } from '../types';
 
 interface ClientesAgendaFields {
@@ -58,6 +59,20 @@ export async function consultarDisponibilidad(
   const hasta = ahora.plus({ days: Number(cliente.horizonte_dias) }).endOf('day');
   const timeMin = desde.startOf('day');
 
+  // Horario real de la clinica (varia por dia de la semana) manda siempre sobre
+  // cualquier rango que tuviera el tipo de cita: dias_reservables solo decide
+  // que dias se ofrece ESE tipo, nunca a que hora abre/cierra la clinica.
+  const clienteRecord = await buscarCliente(phoneNumberId);
+  if (!clienteRecord.fields.horario) {
+    throw new Error(`Clientes: falta el campo horario para phone_number_id ${phoneNumberId}`);
+  }
+  let horario: HorarioSemana;
+  try {
+    horario = JSON.parse(clienteRecord.fields.horario);
+  } catch {
+    throw new Error(`Clientes: horario no es JSON valido para phone_number_id ${phoneNumberId}`);
+  }
+
   const ventana: Ventana = {
     calendar_id: cliente.calendar_id,
     timeZone: TZ,
@@ -68,8 +83,7 @@ export async function consultarDisponibilidad(
     colchon_min: Number(tipo.colchon_min) || 0,
     redondeo_min: Number(tipo.redondeo_min) || 15,
     dias_reservables: tipo.dias_reservables || [],
-    hora_inicio: String(tipo.hora_inicio),
-    hora_fin: String(tipo.hora_fin),
+    horario,
   };
 
   const fb = await freeBusy(cliente.calendar_id, timeMin.toISO()!, hasta.toISO()!, TZ);

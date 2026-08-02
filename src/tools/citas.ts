@@ -12,6 +12,9 @@ export interface ClienteFields {
   resumen_email?: string;
   ventana_cancelacion_horas?: number;
   telefono_derivacion?: string;
+  // JSON string: {"lunes":[["09:30","18:00"]], "sabado":[], ...} - horario real
+  // por dia de la semana, usado por consultarDisponibilidad (ver huecos.ts).
+  horario?: string;
 }
 
 export interface ReservaFields {

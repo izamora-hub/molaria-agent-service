@@ -16,6 +16,11 @@ export function norm(s: string | null | undefined): string {
     .trim();
 }
 
+// Horario real de la clinica por dia de la semana (clave = nombre en DIAS,
+// valor = lista de rangos [inicio,fin] "HH:mm", vacia si cierra ese dia).
+// Soporta varios rangos por dia (ej. manana/tarde con parada al mediodia).
+export type HorarioSemana = Partial<Record<string, [string, string][]>>;
+
 export interface Ventana {
   calendar_id: string;
   timeZone: string;
@@ -26,8 +31,7 @@ export interface Ventana {
   colchon_min: number;
   redondeo_min: number;
   dias_reservables: string[];
-  hora_inicio: string;
-  hora_fin: string;
+  horario: HorarioSemana;
 }
 
 export interface HuecoOfrecido {
@@ -73,9 +77,7 @@ export function calcularHuecos(
 
   const desde = DateTime.fromISO(ventana.desde).setZone(TZ);
   const hasta = DateTime.fromISO(ventana.hasta).setZone(TZ);
-
-  const [hIni, mIni] = String(ventana.hora_inicio).split(':').map(Number);
-  const [hFin, mFin] = String(ventana.hora_fin).split(':').map(Number);
+  const HORARIO = ventana.horario || {};
 
   const busyRaw = (freeBusy.busy || [])
     .map((b) => ({ ini: DateTime.fromISO(b.start).setZone(TZ), fin: DateTime.fromISO(b.end).setZone(TZ) }))
@@ -102,27 +104,33 @@ export function calcularHuecos(
   let dia = desde.startOf('day');
 
   while (dia <= hasta) {
-    if (DIAS_OK.includes(DIAS[dia.weekday % 7])) {
-      const apertura = dia.set({ hour: hIni, minute: mIni, second: 0, millisecond: 0 });
-      const cierre = dia.set({ hour: hFin, minute: mFin, second: 0, millisecond: 0 });
+    const nombreDia = DIAS[dia.weekday % 7];
+    if (DIAS_OK.includes(nombreDia)) {
+      const rangos = HORARIO[nombreDia] || [];
+      for (const [horaIni, horaFin] of rangos) {
+        const [hIni, mIni] = horaIni.split(':').map(Number);
+        const [hFin, mFin] = horaFin.split(':').map(Number);
+        const apertura = dia.set({ hour: hIni, minute: mIni, second: 0, millisecond: 0 });
+        const cierre = dia.set({ hour: hFin, minute: mFin, second: 0, millisecond: 0 });
 
-      const trozos: { ini: DateTime<boolean>; fin: DateTime<boolean>; tras_evento: boolean }[] = [];
-      let cursor: DateTime<boolean> = apertura;
-      for (const b of ocupado) {
-        if (b.fin <= apertura || b.ini >= cierre) continue;
-        if (b.ini > cursor) trozos.push({ ini: cursor, fin: b.ini, tras_evento: cursor > apertura });
-        if (b.fin > cursor) cursor = b.fin;
-      }
-      if (cursor < cierre) trozos.push({ ini: cursor, fin: cierre, tras_evento: cursor > apertura });
+        const trozos: { ini: DateTime<boolean>; fin: DateTime<boolean>; tras_evento: boolean }[] = [];
+        let cursor: DateTime<boolean> = apertura;
+        for (const b of ocupado) {
+          if (b.fin <= apertura || b.ini >= cierre) continue;
+          if (b.ini > cursor) trozos.push({ ini: cursor, fin: b.ini, tras_evento: cursor > apertura });
+          if (b.fin > cursor) cursor = b.fin;
+        }
+        if (cursor < cierre) trozos.push({ ini: cursor, fin: cierre, tras_evento: cursor > apertura });
 
-      for (const t of trozos) {
-        let ini: DateTime<boolean> = t.tras_evento ? t.ini.plus({ minutes: COLCHON }) : t.ini;
-        if (ini < desde) ini = desde;
-        ini = redondear(ini);
+        for (const t of trozos) {
+          let ini: DateTime<boolean> = t.tras_evento ? t.ini.plus({ minutes: COLCHON }) : t.ini;
+          if (ini < desde) ini = desde;
+          ini = redondear(ini);
 
-        while (ini.plus({ minutes: DUR }) <= t.fin && ini.plus({ minutes: DUR }) <= cierre) {
-          slots.push({ inicio: ini.toISO()!, fin: ini.plus({ minutes: DUR }).toISO()! });
-          ini = redondear(ini.plus({ minutes: DUR + COLCHON }));
+          while (ini.plus({ minutes: DUR }) <= t.fin && ini.plus({ minutes: DUR }) <= cierre) {
+            slots.push({ inicio: ini.toISO()!, fin: ini.plus({ minutes: DUR }).toISO()! });
+            ini = redondear(ini.plus({ minutes: DUR + COLCHON }));
+          }
         }
       }
     }

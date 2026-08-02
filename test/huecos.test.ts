@@ -12,8 +12,13 @@ const ventanaBase: Ventana = {
   colchon_min: 10,
   redondeo_min: 15,
   dias_reservables: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'],
-  hora_inicio: '09:00',
-  hora_fin: '14:00',
+  horario: {
+    lunes: [['09:00', '14:00']],
+    martes: [['09:00', '14:00']],
+    miercoles: [['09:00', '14:00']],
+    jueves: [['09:00', '14:00']],
+    viernes: [['09:00', '14:00']],
+  },
 };
 
 test('norm quita acentos y normaliza a minusculas', () => {
@@ -51,5 +56,31 @@ test('calcularHuecos respeta omitir para paginar', () => {
 
 test('calcularHuecos devuelve sin_huecos_ese_dia si el dia pedido no tiene huecos', () => {
   const resultado = calcularHuecos(ventanaBase, { busy: [] }, 0, 'sabado');
+  assert.ok('error' in resultado && resultado.error === 'sin_huecos_ese_dia');
+});
+
+test('calcularHuecos respeta un horario distinto por dia de la semana (caso Sarrat: miercoles cierra antes)', () => {
+  const ventanaConMiercolesCorto: Ventana = {
+    ...ventanaBase,
+    horario: {
+      ...ventanaBase.horario,
+      miercoles: [['09:00', '11:00']], // cierra mas pronto que el resto de dias
+    },
+  };
+  const resultado = calcularHuecos(ventanaConMiercolesCorto, { busy: [] }, 0, 'miercoles');
+  assert.ok(!('error' in resultado));
+  if ('error' in resultado) return;
+  for (const hueco of resultado.ofrecer) {
+    assert.ok(hueco.inicio.slice(11, 16) < '11:00', `hueco ${hueco.inicio} fuera del horario real de miercoles`);
+  }
+});
+
+test('calcularHuecos no ofrece huecos un dia sin rangos en el horario aunque este en dias_reservables', () => {
+  const ventanaSabadoCerrado: Ventana = {
+    ...ventanaBase,
+    dias_reservables: [...ventanaBase.dias_reservables, 'sabado'],
+    horario: { ...ventanaBase.horario, sabado: [] },
+  };
+  const resultado = calcularHuecos(ventanaSabadoCerrado, { busy: [] }, 0, 'sabado');
   assert.ok('error' in resultado && resultado.error === 'sin_huecos_ese_dia');
 });

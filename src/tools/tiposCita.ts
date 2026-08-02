@@ -8,8 +8,6 @@ export interface TipoCitaFields {
   colchon_min?: number;
   redondeo_min?: number;
   dias_reservables?: string[];
-  hora_inicio: string;
-  hora_fin: string;
 }
 
 // Compartido por consultarDisponibilidad (para calcular huecos) y crearHold
