@@ -1,6 +1,7 @@
 import { config } from '../config';
 import { searchOne, upsert, escapeFormulaValue } from '../clients/airtable';
 import { freeBusy, createTentativeEvent } from '../clients/googleCalendar';
+import { adquirirLockHueco, liberarLockHueco } from '../clients/redisLock';
 import { listarTiposCita, buscarTipoCita } from './tiposCita';
 import { CrearHoldInput } from '../types';
 
@@ -67,55 +68,68 @@ export async function crearHold(
     nota: 'Ese hueco ha sido ocupado mientras hablabais. Disculpate brevemente y vuelve a invocar consultar_disponibilidad para ofrecerle otros huecos. No insistas con el mismo.',
   };
 
-  // Primera comprobacion.
-  if (!(await huecoLibre(calendar_id, tz, input.inicio, input.fin))) {
+  // Lock corto por hueco exacto: sin esto, dos holds concurrentes sobre el
+  // mismo calendar_id+inicio podrian pasar ambos el doble check de freeBusy
+  // (que solo mitiga la ventana, no la cierra del todo) y crear un
+  // doble-booking. Si el lock esta ocupado, se trata igual que un hueco ya no
+  // disponible - honesto: en ese instante, lo esta.
+  if (!(await adquirirLockHueco(calendar_id, input.inicio))) {
     return NO_DISPONIBLE;
   }
 
-  // Segunda comprobacion justo antes de escribir, para cerrar al maximo la ventana
-  // de doble reserva entre el primer check y la creacion real del evento.
-  if (!(await huecoLibre(calendar_id, tz, input.inicio, input.fin))) {
-    return NO_DISPONIBLE;
-  }
+  try {
+    // Primera comprobacion.
+    if (!(await huecoLibre(calendar_id, tz, input.inicio, input.fin))) {
+      return NO_DISPONIBLE;
+    }
 
-  const { eventId } = await createTentativeEvent({
-    calendarId: calendar_id,
-    timeZone: tz,
-    summary: `${prefijoHold} ${input.tipo_cita} - ${input.nombre}`,
-    description: `Solicitud creada por el agente de WhatsApp.\nTelefono: ${input.telefono}\nTipo: ${input.tipo_cita}\nEstado: pendiente de confirmar.`,
-    inicio: input.inicio,
-    fin: input.fin,
-  });
+    // Segunda comprobacion justo antes de escribir, para cerrar al maximo la ventana
+    // de doble reserva entre el primer check y la creacion real del evento.
+    if (!(await huecoLibre(calendar_id, tz, input.inicio, input.fin))) {
+      return NO_DISPONIBLE;
+    }
 
-  await upsert(
-    config.airtable.tableReservas,
-    {
-      reserva_id: ctx.toolUseId,
-      conv_id: ctx.convId,
-      wa_id: ctx.waId,
-      phone_number_id: ctx.phoneNumberId,
-      cliente: [clienteRecord.id],
-      tipo_cita: [tipoCitaRecord.id],
+    const { eventId } = await createTentativeEvent({
+      calendarId: calendar_id,
+      timeZone: tz,
+      summary: `${prefijoHold} ${input.tipo_cita} - ${input.nombre}`,
+      description: `Solicitud creada por el agente de WhatsApp.\nTelefono: ${input.telefono}\nTipo: ${input.tipo_cita}\nEstado: pendiente de confirmar.`,
+      inicio: input.inicio,
+      fin: input.fin,
+    });
+
+    await upsert(
+      config.airtable.tableReservas,
+      {
+        reserva_id: ctx.toolUseId,
+        conv_id: ctx.convId,
+        wa_id: ctx.waId,
+        phone_number_id: ctx.phoneNumberId,
+        cliente: [clienteRecord.id],
+        tipo_cita: [tipoCitaRecord.id],
+        inicio: input.inicio,
+        fin: input.fin,
+        nombre: input.nombre,
+        telefono: input.telefono,
+        event_id: eventId,
+        calendar_id,
+        estado: 'activa',
+        notificado: false,
+        creado_en: new Date().toISOString(),
+      },
+      'reserva_id'
+    );
+
+    return {
+      ok: true,
+      estado: 'pendiente_de_confirmacion',
+      tipo: input.tipo_cita,
       inicio: input.inicio,
       fin: input.fin,
       nombre: input.nombre,
-      telefono: input.telefono,
-      event_id: eventId,
-      calendar_id,
-      estado: 'activa',
-      notificado: false,
-      creado_en: new Date().toISOString(),
-    },
-    'reserva_id'
-  );
-
-  return {
-    ok: true,
-    estado: 'pendiente_de_confirmacion',
-    tipo: input.tipo_cita,
-    inicio: input.inicio,
-    fin: input.fin,
-    nombre: input.nombre,
-    nota: 'La solicitud ha quedado anotada y el hueco bloqueado provisionalmente. Dile al paciente que solo le avisaran si hay algun problema con el horario; si no, la cita queda asi. No digas que la cita esta confirmada.',
-  };
+      nota: 'La solicitud ha quedado anotada y el hueco bloqueado provisionalmente. Dile al paciente que solo le avisaran si hay algun problema con el horario; si no, la cita queda asi. No digas que la cita esta confirmada.',
+    };
+  } finally {
+    await liberarLockHueco(calendar_id, input.inicio);
+  }
 }
