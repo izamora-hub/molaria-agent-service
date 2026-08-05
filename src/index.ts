@@ -18,6 +18,7 @@ app.post('/agent/run', requireBearerAuth, async (req, res) => {
     'conv_id',
     'phone_number_id',
     'wa_id',
+    'wamid',
     'cliente_nombre',
     'system_estatico',
     'system_dinamico',

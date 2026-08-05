@@ -32,4 +32,14 @@ export const config = {
     botToken: required('TELEGRAM_BOT_TOKEN'),
     chatId: required('TELEGRAM_CHAT_ID'),
   },
+  // Mismo Redis que ya usa n8n para su cola (Bull) en el mismo proyecto de
+  // Railway - opcional a proposito: si no esta configurado, la cache de
+  // idempotencia por wamid simplemente se desactiva (ver clients/redisCache.ts),
+  // nunca debe tumbar el servicio.
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : undefined,
+    password: process.env.REDIS_PASSWORD,
+    username: process.env.REDIS_USERNAME,
+  },
 };

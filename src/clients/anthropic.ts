@@ -139,6 +139,12 @@ export async function callClaude(params: {
       { type: 'text', text: params.systemDinamico },
     ],
     messages: withCache(params.messages) as Anthropic.MessageParam[],
-    ...(params.toolsEnabled ? { tools: TOOLS } : {}),
+    // disable_parallel_tool_use: el resto del codigo (agentLoop.ts) solo lee el
+    // PRIMER bloque tool_use de la respuesta - si Claude alguna vez paralelizara
+    // 2 herramientas en el mismo turno, solo se ejecutaria y respondiera una,
+    // y la siguiente llamada a la API fallaria con 400 (falta un tool_result
+    // por cada tool_use del turno anterior). El procedimiento del prompt ya
+    // exige una herramienta a la vez, asi que esto no quita capacidad real.
+    ...(params.toolsEnabled ? { tools: TOOLS, tool_choice: { type: 'auto', disable_parallel_tool_use: true } } : {}),
   });
 }

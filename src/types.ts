@@ -12,6 +12,7 @@ export interface AgentRunRequest {
   conv_id: string;
   phone_number_id: string;
   wa_id: string;
+  wamid: string;
   cliente_nombre: string;
   telefono_derivacion?: string;
   system_estatico: string;

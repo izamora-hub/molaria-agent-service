@@ -5,6 +5,7 @@ import { crearHold } from './tools/crearHold';
 import { cancelarCita } from './tools/cancelarCita';
 import { reprogramarCita } from './tools/reprogramarCita';
 import { AgentRunRequest, AgentRunSuccess, ClaudeMessage } from './types';
+import { getCachedAgentRun, cacheAgentRun } from './clients/redisCache';
 
 // Limite de vueltas del loop real. A diferencia de n8n (donde el loop estaba
 // desenrollado a mano en 3 nodos Claude y una 4a llamada a herramienta se
@@ -35,6 +36,13 @@ async function ejecutarHerramienta(
 }
 
 export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSuccess> {
+  // Idempotencia por wamid: si LlamarServicioAgente (n8n) reintenta esta misma
+  // peticion porque la respuesta anterior se perdio en transito, el turno ya
+  // completado (con sus efectos secundarios ya aplicados) se devuelve tal cual
+  // en vez de volver a ejecutarse. Ver clients/redisCache.ts.
+  const cacheado = await getCachedAgentRun(req.wamid);
+  if (cacheado) return cacheado;
+
   const messages: ClaudeMessage[] = [...req.messages];
   let herramientaUsada: AgentRunSuccess['herramienta_usada'] = null;
 
@@ -54,11 +62,13 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
     if (!bloqueHerramienta) {
       const textoFinal = bloqueTexto?.text ?? FALLBACK_SIN_RESOLVER;
       messages.push({ role: 'assistant', content: [{ type: 'text', text: textoFinal }] });
-      return {
+      const resultadoFinal: AgentRunSuccess = {
         respuesta_texto: textoFinal,
         delta_messages: messages.slice(req.messages.length - 1),
         herramienta_usada: herramientaUsada,
       };
+      await cacheAgentRun(req.wamid, resultadoFinal);
+      return resultadoFinal;
     }
 
     herramientaUsada = bloqueHerramienta.name as AgentRunSuccess['herramienta_usada'];
@@ -87,9 +97,11 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
 
   // Se agotaron las vueltas sin que Claude devolviera texto final.
   messages.push({ role: 'assistant', content: [{ type: 'text', text: FALLBACK_SIN_RESOLVER }] });
-  return {
+  const resultadoAgotado: AgentRunSuccess = {
     respuesta_texto: FALLBACK_SIN_RESOLVER,
     delta_messages: messages.slice(req.messages.length - 1),
     herramienta_usada: herramientaUsada,
   };
+  await cacheAgentRun(req.wamid, resultadoAgotado);
+  return resultadoAgotado;
 }
