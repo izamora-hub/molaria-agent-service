@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { config } from '../config';
-import { searchOne } from '../clients/airtable';
+import { searchOne, escapeFormulaValue } from '../clients/airtable';
 import { freeBusy } from '../clients/googleCalendar';
 import { calcularHuecos, HorarioSemana, Ventana } from './huecos';
 import { listarTiposCita, buscarTipoCita } from './tiposCita';
@@ -35,7 +35,7 @@ export async function consultarDisponibilidad(
 ): Promise<ConsultarDisponibilidadResultado> {
   const clienteAgenda = await searchOne<ClientesAgendaFields>(
     config.airtable.tableClientesAgenda,
-    `AND({phone_number_id} = "${phoneNumberId}", {activo} = TRUE())`
+    `AND({phone_number_id} = "${escapeFormulaValue(phoneNumberId)}", {activo} = TRUE())`
   );
   if (!clienteAgenda) {
     throw new Error(`ClientesAgenda: no se encontro cliente activo para phone_number_id ${phoneNumberId}`);

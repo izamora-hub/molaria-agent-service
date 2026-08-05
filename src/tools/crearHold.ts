@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { searchOne, upsert } from '../clients/airtable';
+import { searchOne, upsert, escapeFormulaValue } from '../clients/airtable';
 import { freeBusy, createTentativeEvent } from '../clients/googleCalendar';
 import { listarTiposCita, buscarTipoCita } from './tiposCita';
 import { CrearHoldInput } from '../types';
@@ -38,7 +38,7 @@ export async function crearHold(
 ): Promise<CrearHoldResultado> {
   const clienteAgenda = await searchOne<ClientesAgendaFields>(
     config.airtable.tableClientesAgenda,
-    `{phone_number_id} = '${ctx.phoneNumberId}'`
+    `{phone_number_id} = "${escapeFormulaValue(ctx.phoneNumberId)}"`
   );
   if (!clienteAgenda) {
     throw new Error(`ClientesAgenda: no se encontro configuracion para phone_number_id ${ctx.phoneNumberId}`);
@@ -49,7 +49,7 @@ export async function crearHold(
 
   const clienteRecord = await searchOne<ClientesFields>(
     config.airtable.tableClientes,
-    `{phone_number_id} = '${ctx.phoneNumberId}'`
+    `{phone_number_id} = "${escapeFormulaValue(ctx.phoneNumberId)}"`
   );
   if (!clienteRecord) {
     throw new Error(`Clientes: no se encontro registro para phone_number_id ${ctx.phoneNumberId}`);

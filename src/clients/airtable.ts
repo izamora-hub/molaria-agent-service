@@ -6,6 +6,15 @@ export interface AirtableRecord<F = Record<string, unknown>> {
   fields: F;
 }
 
+// Escapa un valor antes de interpolarlo en un filterByFormula. Sin esto, un
+// valor con una comilla doble o una barra invertida rompe o manipula la
+// formula (inyeccion) - el caso mas directo es el "telefono" que el propio
+// paciente escribe en la conversacion de WhatsApp y que citas.ts usa tal cual
+// en AND({telefono} = "...").
+export function escapeFormulaValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 async function airtableRequest<T>(
   method: 'GET' | 'POST' | 'PATCH',
   path: string,

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { config } from '../config';
-import { searchOne, searchAll, updateById, AirtableRecord } from '../clients/airtable';
+import { searchOne, searchAll, updateById, AirtableRecord, escapeFormulaValue } from '../clients/airtable';
 import { deleteEvent } from '../clients/googleCalendar';
 import { logError } from '../clients/logError';
 
@@ -37,7 +37,7 @@ export interface ReservaFields {
 export async function buscarCliente(phoneNumberId: string): Promise<AirtableRecord<ClienteFields>> {
   const cliente = await searchOne<ClienteFields>(
     config.airtable.tableClientes,
-    `{phone_number_id} = '${phoneNumberId}'`
+    `{phone_number_id} = "${escapeFormulaValue(phoneNumberId)}"`
   );
   if (!cliente) {
     throw new Error(`Clientes: no se encontro registro para phone_number_id ${phoneNumberId}`);
@@ -77,7 +77,7 @@ export async function buscarReservaCancelable(
 ): Promise<BuscarReservaResultado> {
   let reservas = await searchAll<ReservaFields>(
     config.airtable.tableReservas,
-    `AND({estado} = 'activa', {phone_number_id} = '${phoneNumberId}', {telefono} = '${telefono}')`
+    `AND({estado} = "activa", {phone_number_id} = "${escapeFormulaValue(phoneNumberId)}", {telefono} = "${escapeFormulaValue(telefono)}")`
   );
   reservas.sort((a, b) => a.fields.inicio.localeCompare(b.fields.inicio));
 
@@ -86,7 +86,7 @@ export async function buscarReservaCancelable(
   // la hora correcta al paciente, igual que hace huecos.ts al ofrecer huecos.
   const clienteAgenda = await searchOne<{ timezone?: string }>(
     config.airtable.tableClientesAgenda,
-    `{phone_number_id} = '${phoneNumberId}'`
+    `{phone_number_id} = "${escapeFormulaValue(phoneNumberId)}"`
   );
   const tz = clienteAgenda?.fields.timezone || 'Europe/Madrid';
 

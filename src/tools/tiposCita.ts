@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { searchAll, AirtableRecord } from '../clients/airtable';
+import { searchAll, AirtableRecord, escapeFormulaValue } from '../clients/airtable';
 import { norm } from './huecos';
 
 export interface TipoCitaFields {
@@ -13,7 +13,10 @@ export interface TipoCitaFields {
 // Compartido por consultarDisponibilidad (para calcular huecos) y crearHold
 // (para resolver el id de registro que enlazar en Reservas.tipo_cita).
 export async function listarTiposCita(clienteNombre: string): Promise<AirtableRecord<TipoCitaFields>[]> {
-  return searchAll<TipoCitaFields>(config.airtable.tableTiposCita, `{cliente} = "${clienteNombre}"`);
+  return searchAll<TipoCitaFields>(
+    config.airtable.tableTiposCita,
+    `{cliente} = "${escapeFormulaValue(clienteNombre)}"`
+  );
 }
 
 export function buscarTipoCita(
