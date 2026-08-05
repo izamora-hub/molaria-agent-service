@@ -73,7 +73,19 @@ export function calcularHuecos(
   const DUR = Number(ventana.duracion_min);
   const COLCHON = Number(ventana.colchon_min) || 0;
   const RED = Number(ventana.redondeo_min) || 1;
-  const DIAS_OK = ventana.dias_reservables || [];
+  // DIAS_OK normalizado igual que nombreDia mas abajo (norm()): si en Airtable
+  // dias_reservables trae "Miercoles" o con tilde, sin esto el dia se descarta
+  // en silencio y nunca se ofrecen huecos en el.
+  const DIAS_OK = (ventana.dias_reservables || []).map(norm);
+
+  // Sin este guard, un TipoCita mal configurado con duracion_min=0 (y
+  // colchon_min=0) hace que "ini" nunca avance en el bucle de abajo. Como esta
+  // funcion es sincrona sin ningun await, ese bucle infinito no cuelga solo
+  // esta peticion: bloquea el event loop de Node entero, tumbando el servicio
+  // para todas las clinicas hasta reiniciar el proceso a mano.
+  if (!(DUR > 0)) {
+    throw new Error(`calcularHuecos: duracion_min invalida (${ventana.duracion_min}) para "${ventana.nombre_tipo}"`);
+  }
 
   const desde = DateTime.fromISO(ventana.desde).setZone(TZ);
   const hasta = DateTime.fromISO(ventana.hasta).setZone(TZ);

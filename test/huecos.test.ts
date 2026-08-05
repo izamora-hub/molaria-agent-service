@@ -84,3 +84,19 @@ test('calcularHuecos no ofrece huecos un dia sin rangos en el horario aunque est
   const resultado = calcularHuecos(ventanaSabadoCerrado, { busy: [] }, 0, 'sabado');
   assert.ok('error' in resultado && resultado.error === 'sin_huecos_ese_dia');
 });
+
+test('calcularHuecos lanza en vez de colgarse si duracion_min es 0 (AG-A-02)', () => {
+  const ventanaMalConfigurada: Ventana = { ...ventanaBase, duracion_min: 0, colchon_min: 0 };
+  assert.throws(() => calcularHuecos(ventanaMalConfigurada, { busy: [] }, 0, undefined));
+});
+
+test('calcularHuecos normaliza dias_reservables antes de comparar (AG-A-03)', () => {
+  const ventanaConTildesYMayusculas: Ventana = {
+    ...ventanaBase,
+    dias_reservables: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'],
+  };
+  const resultado = calcularHuecos(ventanaConTildesYMayusculas, { busy: [] }, 0, 'miercoles');
+  assert.ok(!('error' in resultado));
+  if ('error' in resultado) return;
+  assert.ok(resultado.ofrecer.length > 0);
+});
