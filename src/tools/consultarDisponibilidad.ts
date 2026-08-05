@@ -53,10 +53,21 @@ export async function consultarDisponibilidad(
     };
   }
 
+  const antelacionHoras = Number(cliente.antelacion_min_horas);
+  const horizonteDias = Number(cliente.horizonte_dias);
+  // Sin validar, un valor no numerico/ausente produce NaN -> fecha invalida ->
+  // el bucle de calcularHuecos no itera nunca -> "no hay huecos" enganoso en
+  // vez de un error de configuracion claro.
+  if (!Number.isFinite(antelacionHoras) || !Number.isFinite(horizonteDias)) {
+    throw new Error(
+      `ClientesAgenda: antelacion_min_horas/horizonte_dias no numericos para phone_number_id ${phoneNumberId}`
+    );
+  }
+
   const TZ = cliente.timezone || 'Europe/Madrid';
   const ahora = DateTime.now().setZone(TZ);
-  const desde = ahora.plus({ hours: Number(cliente.antelacion_min_horas) });
-  const hasta = ahora.plus({ days: Number(cliente.horizonte_dias) }).endOf('day');
+  const desde = ahora.plus({ hours: antelacionHoras });
+  const hasta = ahora.plus({ days: horizonteDias }).endOf('day');
   const timeMin = desde.startOf('day');
 
   // Horario real de la clinica (varia por dia de la semana) manda siempre sobre
