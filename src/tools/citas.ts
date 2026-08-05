@@ -45,8 +45,8 @@ export async function buscarCliente(phoneNumberId: string): Promise<AirtableReco
   return cliente;
 }
 
-function legible(iso: string): string {
-  return DateTime.fromISO(iso).setLocale('es').toFormat("cccc d 'de' LLLL 'a las' HH:mm");
+function legible(iso: string, tz: string): string {
+  return DateTime.fromISO(iso).setZone(tz).setLocale('es').toFormat("cccc d 'de' LLLL 'a las' HH:mm");
 }
 
 export type BuscarReservaResultado =
@@ -81,6 +81,15 @@ export async function buscarReservaCancelable(
   );
   reservas.sort((a, b) => a.fields.inicio.localeCompare(b.fields.inicio));
 
+  // Reservas.inicio se lee de Airtable normalizado a UTC (ver comentario mas
+  // abajo): hay que reconvertir a la zona horaria de la clinica para mostrarle
+  // la hora correcta al paciente, igual que hace huecos.ts al ofrecer huecos.
+  const clienteAgenda = await searchOne<{ timezone?: string }>(
+    config.airtable.tableClientesAgenda,
+    `{phone_number_id} = '${phoneNumberId}'`
+  );
+  const tz = clienteAgenda?.fields.timezone || 'Europe/Madrid';
+
   if (inicioDesambiguar) {
     // Comparacion por instante, no por string: "inicio" es dateTime en Airtable
     // y se normaliza a UTC al leer, mientras que Claude copia el valor tal como
@@ -102,7 +111,7 @@ export async function buscarReservaCancelable(
     return {
       ok: false,
       error: 'ambiguo',
-      opciones: reservas.map((r) => ({ inicio: r.fields.inicio, legible: legible(r.fields.inicio) })),
+      opciones: reservas.map((r) => ({ inicio: r.fields.inicio, legible: legible(r.fields.inicio, tz) })),
       nota: 'Hay mas de una cita activa con ese telefono. Preguntale al paciente por cual fecha (usa los valores "legible"), y vuelve a invocar la herramienta pasando el "inicio" EXACTO de la opcion elegida, copiado literalmente.',
     };
   }
@@ -118,7 +127,7 @@ export async function buscarReservaCancelable(
         error: 'fuera_de_ventana',
         horas_restantes: Math.max(0, Math.round(horasRestantes)),
         telefono_derivacion: tel,
-        nota: `Quedan menos de ${ventanaHoras}h para la cita (${legible(reserva.fields.inicio)}), fuera del plazo permitido para gestionarlo por aqui. Explicaselo al paciente y derivalo a la clinica${tel ? ` (${tel})` : ''} para que lo resuelvan directamente. No canceles ni reprogrames.`,
+        nota: `Quedan menos de ${ventanaHoras}h para la cita (${legible(reserva.fields.inicio, tz)}), fuera del plazo permitido para gestionarlo por aqui. Explicaselo al paciente y derivalo a la clinica${tel ? ` (${tel})` : ''} para que lo resuelvan directamente. No canceles ni reprogrames.`,
       };
     }
   }
