@@ -116,6 +116,6 @@ export async function crearHold(
     inicio: input.inicio,
     fin: input.fin,
     nombre: input.nombre,
-    nota: 'La solicitud ha quedado anotada y el hueco bloqueado provisionalmente. Confirmale al paciente que queda PENDIENTE de que la clinica lo confirme, y que se le avisara. No digas que la cita esta confirmada.',
+    nota: 'La solicitud ha quedado anotada y el hueco bloqueado provisionalmente. Dile al paciente que solo le avisaran si hay algun problema con el horario; si no, la cita queda asi. No digas que la cita esta confirmada.',
   };
 }
