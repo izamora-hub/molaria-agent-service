@@ -6,6 +6,7 @@ import { cancelarCita } from './tools/cancelarCita';
 import { reprogramarCita } from './tools/reprogramarCita';
 import { AgentRunRequest, AgentRunSuccess, ClaudeMessage } from './types';
 import { getCachedAgentRun, cacheAgentRun } from './clients/redisCache';
+import { logAgente } from './clients/logAgente';
 
 // Limite de vueltas del loop real. A diferencia de n8n (donde el loop estaba
 // desenrollado a mano en 3 nodos Claude y una 4a llamada a herramienta se
@@ -35,6 +36,25 @@ async function ejecutarHerramienta(
   throw new Error(`Herramienta desconocida: ${bloque.name}`);
 }
 
+function extraerTexto(content: ClaudeMessage['content']): string {
+  if (typeof content === 'string') return content;
+  for (let i = content.length - 1; i >= 0; i--) {
+    const bloque = content[i];
+    if (bloque.type === 'text') return bloque.text;
+  }
+  return '';
+}
+
+// Pregunta que se registra en LogAgente: el ultimo mensaje del paciente tal
+// como llego en el payload original, nunca de `messages` (que dentro del loop
+// va acumulando tool_result que no son la pregunta real).
+function ultimaPreguntaPaciente(messages: ClaudeMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') return extraerTexto(messages[i].content);
+  }
+  return '';
+}
+
 export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSuccess> {
   // Idempotencia por wamid: si LlamarServicioAgente (n8n) reintenta esta misma
   // peticion porque la respuesta anterior se perdio en transito, el turno ya
@@ -43,8 +63,15 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
   const cacheado = await getCachedAgentRun(req.wamid);
   if (cacheado) return cacheado;
 
+  const pregunta = ultimaPreguntaPaciente(req.messages);
   const messages: ClaudeMessage[] = [...req.messages];
   let herramientaUsada: AgentRunSuccess['herramienta_usada'] = null;
+
+  let tokensIn = 0;
+  let tokensOut = 0;
+  let cacheWrite = 0;
+  let cacheRead = 0;
+  let llamadasClaude = 0;
 
   for (let vuelta = 0; vuelta < MAX_ITERACIONES; vuelta++) {
     const respuesta = await callClaude({
@@ -53,6 +80,12 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
       messages,
       toolsEnabled: req.tools_enabled,
     });
+
+    llamadasClaude++;
+    tokensIn += respuesta.usage.input_tokens;
+    tokensOut += respuesta.usage.output_tokens;
+    cacheWrite += respuesta.usage.cache_creation_input_tokens ?? 0;
+    cacheRead += respuesta.usage.cache_read_input_tokens ?? 0;
 
     const bloqueTexto = respuesta.content.find((c): c is Anthropic.TextBlock => c.type === 'text');
     const bloqueHerramienta = respuesta.content.find(
@@ -67,6 +100,19 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
         delta_messages: messages.slice(req.messages.length - 1),
         herramienta_usada: herramientaUsada,
       };
+      await logAgente({
+        execId: req.wamid,
+        waId: req.wa_id,
+        phoneNumberId: req.phone_number_id,
+        pregunta,
+        respondido: textoFinal !== FALLBACK_SIN_RESOLVER,
+        respuesta: textoFinal,
+        tokensIn,
+        tokensOut,
+        cacheWrite,
+        cacheRead,
+        llamadasClaude,
+      });
       await cacheAgentRun(req.wamid, resultadoFinal);
       return resultadoFinal;
     }
@@ -102,6 +148,19 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
     delta_messages: messages.slice(req.messages.length - 1),
     herramienta_usada: herramientaUsada,
   };
+  await logAgente({
+    execId: req.wamid,
+    waId: req.wa_id,
+    phoneNumberId: req.phone_number_id,
+    pregunta,
+    respondido: false,
+    respuesta: FALLBACK_SIN_RESOLVER,
+    tokensIn,
+    tokensOut,
+    cacheWrite,
+    cacheRead,
+    llamadasClaude,
+  });
   await cacheAgentRun(req.wamid, resultadoAgotado);
   return resultadoAgotado;
 }

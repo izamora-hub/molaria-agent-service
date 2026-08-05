@@ -21,6 +21,10 @@ export const config = {
     // (esa es el log de conversacion paciente/asistente que alimenta el informe
     // semanal - escribir ahi filas de fallos tecnicos contaminaria ese analisis).
     tableErrores: required('AIRTABLE_TABLE_ERRORES'),
+    // Opcional a proposito, como redis mas abajo: es un log de mejor esfuerzo
+    // (clients/logAgente.ts), nunca debe impedir que el servicio arranque ni
+    // que un turno responda al paciente si falta configurar esta variable.
+    tableLogAgente: process.env.AIRTABLE_TABLE_LOG_AGENTE,
   },
   googleServiceAccountJson: required('GOOGLE_SERVICE_ACCOUNT_JSON'),
   resend: {
