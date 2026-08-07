@@ -1,10 +1,8 @@
-import { config } from '../config';
-import { getById } from '../clients/airtable';
+import { queryOne } from '../clients/db';
 import { enviarEmail } from '../clients/resend';
 import { logError } from '../clients/logError';
 import { buscarCliente, buscarReservaCancelable, marcarCancelada, BuscarReservaResultado } from './citas';
 import { crearHold, CrearHoldResultado } from './crearHold';
-import { TipoCitaFields } from './tiposCita';
 import { ReprogramarCitaInput } from '../types';
 
 export type ReprogramarCitaResultado =
@@ -25,9 +23,10 @@ export async function reprogramarCita(
 
   const reservaAnterior = resultado.reserva;
 
-  const tipoCitaId = reservaAnterior.fields.tipo_cita?.[0];
+  const tipoCitaId = reservaAnterior.tipo_cita_id;
   const tipoCitaTexto = tipoCitaId
-    ? (await getById<TipoCitaFields>(config.airtable.tableTiposCita, tipoCitaId)).fields.nombre_tipo
+    ? (await queryOne<{ nombre_tipo: string }>('SELECT nombre_tipo FROM tipos_cita WHERE id = $1', [tipoCitaId]))
+        ?.nombre_tipo ?? ''
     : '';
 
   // Orden deliberado: crea el hold NUEVO antes de tocar el viejo. Si el hueco
@@ -37,7 +36,7 @@ export async function reprogramarCita(
     inicio: input.nuevo_inicio,
     fin: input.nuevo_fin,
     tipo_cita: tipoCitaTexto,
-    nombre: reservaAnterior.fields.nombre,
+    nombre: reservaAnterior.nombre,
     telefono: input.telefono,
   });
 
@@ -54,12 +53,12 @@ export async function reprogramarCita(
   // ninguna - preferible, y recuperable a mano.
   await marcarCancelada(reservaAnterior, ctx);
 
-  const resumenEmail = cliente.fields.resumen_email;
+  const resumenEmail = cliente.resumen_email;
   if (resumenEmail) {
     const envio = await enviarEmail({
       to: resumenEmail,
-      subject: `Cita reprogramada: ${reservaAnterior.fields.nombre}`,
-      html: `<p>El paciente <strong>${reservaAnterior.fields.nombre}</strong> (${input.telefono}) ha movido su cita del <strong>${reservaAnterior.fields.inicio}</strong> al <strong>${input.nuevo_inicio}</strong> a traves del agente de WhatsApp. Queda pendiente de confirmar.</p>`,
+      subject: `Cita reprogramada: ${reservaAnterior.nombre}`,
+      html: `<p>El paciente <strong>${reservaAnterior.nombre}</strong> (${input.telefono}) ha movido su cita del <strong>${reservaAnterior.inicio}</strong> al <strong>${input.nuevo_inicio}</strong> a traves del agente de WhatsApp. Queda pendiente de confirmar.</p>`,
     });
     if (!envio.ok) {
       await logError({

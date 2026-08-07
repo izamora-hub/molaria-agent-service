@@ -1,5 +1,4 @@
-import { config } from '../config';
-import { create } from './airtable';
+import { query } from './db';
 import { enviarTelegram } from './telegram';
 
 // Misma tabla y shape que ya usa el nodo LogError de n8n, mas una alerta
@@ -15,14 +14,11 @@ export async function logError(params: {
   errorMensaje: string;
 }): Promise<void> {
   try {
-    await create(config.airtable.tableErrores, {
-      conv_id: params.convId,
-      wa_id: params.waId,
-      phone_number_id: params.phoneNumberId,
-      nodo_origen: params.nodoOrigen,
-      error_mensaje: params.errorMensaje,
-      timestamp: new Date().toISOString(),
-    });
+    await query(
+      `INSERT INTO errores (conv_id, wa_id, phone_number_id, nodo_origen, error_mensaje, timestamp)
+       VALUES ($1, $2, $3, $4, $5, now())`,
+      [params.convId, params.waId, params.phoneNumberId, params.nodoOrigen, params.errorMensaje]
+    );
   } catch (err) {
     console.error('Fallo escribiendo en Errores:', err);
   }

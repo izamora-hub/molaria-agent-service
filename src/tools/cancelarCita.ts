@@ -19,12 +19,12 @@ export async function cancelarCita(
   const reserva = resultado.reserva;
   await marcarCancelada(reserva, ctx);
 
-  const resumenEmail = cliente.fields.resumen_email;
+  const resumenEmail = cliente.resumen_email;
   if (resumenEmail) {
     const envio = await enviarEmail({
       to: resumenEmail,
-      subject: `Cita cancelada: ${reserva.fields.nombre}`,
-      html: `<p>El paciente <strong>${reserva.fields.nombre}</strong> (${reserva.fields.telefono}) ha cancelado su cita del <strong>${reserva.fields.inicio}</strong> a traves del agente de WhatsApp.</p>`,
+      subject: `Cita cancelada: ${reserva.nombre}`,
+      html: `<p>El paciente <strong>${reserva.nombre}</strong> (${reserva.telefono}) ha cancelado su cita del <strong>${reserva.inicio}</strong> a traves del agente de WhatsApp.</p>`,
     });
     if (!envio.ok) {
       await logError({
@@ -48,7 +48,7 @@ export async function cancelarCita(
   return {
     ok: true,
     estado: 'cancelada',
-    inicio: reserva.fields.inicio,
+    inicio: reserva.inicio,
     nota: 'La cita ha quedado cancelada. Confirmaselo al paciente con naturalidad.',
   };
 }

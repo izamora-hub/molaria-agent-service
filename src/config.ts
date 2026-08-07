@@ -10,21 +10,11 @@ export const config = {
   port: Number(process.env.PORT || 3000),
   agentServiceSecret: required('AGENT_SERVICE_SECRET'),
   anthropicApiKey: required('ANTHROPIC_API_KEY'),
-  airtable: {
-    token: required('AIRTABLE_TOKEN'),
-    baseId: required('AIRTABLE_BASE_ID'),
-    tableClientes: required('AIRTABLE_TABLE_CLIENTES'),
-    tableClientesAgenda: required('AIRTABLE_TABLE_CLIENTES_AGENDA'),
-    tableTiposCita: required('AIRTABLE_TABLE_TIPOS_CITA'),
-    tableReservas: required('AIRTABLE_TABLE_RESERVAS'),
-    // Tabla tecnica de errores (nodo LogError en n8n), NO la tabla "LogAgente"
-    // (esa es el log de conversacion paciente/asistente que alimenta el informe
-    // semanal - escribir ahi filas de fallos tecnicos contaminaria ese analisis).
-    tableErrores: required('AIRTABLE_TABLE_ERRORES'),
-    // Opcional a proposito, como redis mas abajo: es un log de mejor esfuerzo
-    // (clients/logAgente.ts), nunca debe impedir que el servicio arranque ni
-    // que un turno responda al paciente si falta configurar esta variable.
-    tableLogAgente: process.env.AIRTABLE_TABLE_LOG_AGENTE,
+  db: {
+    // Postgres-TyAZ en Railway (sustituye a Airtable). Usar la variable interna del
+    // servicio (no la de proxy publico) - misma red privada, mismo patron que redis
+    // mas abajo.
+    connectionString: required('DATABASE_URL'),
   },
   googleServiceAccountJson: required('GOOGLE_SERVICE_ACCOUNT_JSON'),
   resend: {

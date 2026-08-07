@@ -1,19 +1,18 @@
-import { config } from '../config';
-import { searchOne, upsert, escapeFormulaValue } from '../clients/airtable';
+import { query, queryOne } from '../clients/db';
 import { freeBusy, createTentativeEvent } from '../clients/googleCalendar';
 import { adquirirLockHueco, liberarLockHueco } from '../clients/redisLock';
 import { listarTiposCita, buscarTipoCita } from './tiposCita';
 import { CrearHoldInput } from '../types';
 
-interface ClientesAgendaFields {
-  cliente: string;
+interface ClientesAgendaRow {
+  id: string;
   calendar_id: string;
-  timezone?: string;
-  prefijo_hold?: string;
+  timezone: string | null;
+  prefijo_hold: string | null;
 }
 
-interface ClientesFields {
-  phone_number_id: string;
+interface ClienteRow {
+  id: string;
 }
 
 export type CrearHoldResultado =
@@ -37,29 +36,31 @@ export async function crearHold(
   ctx: { phoneNumberId: string; convId: string; waId: string; clienteNombre: string; toolUseId: string },
   input: CrearHoldInput
 ): Promise<CrearHoldResultado> {
-  const clienteAgenda = await searchOne<ClientesAgendaFields>(
-    config.airtable.tableClientesAgenda,
-    `{phone_number_id} = "${escapeFormulaValue(ctx.phoneNumberId)}"`
+  const clienteAgenda = await queryOne<ClientesAgendaRow>(
+    `SELECT ca.id, ca.calendar_id, ca.timezone, ca.prefijo_hold
+     FROM clientes_agenda ca JOIN clientes c ON c.id = ca.cliente_id
+     WHERE c.phone_number_id = $1`,
+    [ctx.phoneNumberId]
   );
   if (!clienteAgenda) {
-    throw new Error(`ClientesAgenda: no se encontro configuracion para phone_number_id ${ctx.phoneNumberId}`);
+    throw new Error(`clientes_agenda: no se encontro configuracion para phone_number_id ${ctx.phoneNumberId}`);
   }
-  const { calendar_id, timezone } = clienteAgenda.fields;
+  const { calendar_id, timezone } = clienteAgenda;
   const tz = timezone || 'Europe/Madrid';
-  const prefijoHold = clienteAgenda.fields.prefijo_hold || '[PENDIENTE CONFIRMAR]';
+  const prefijoHold = clienteAgenda.prefijo_hold || '[PENDIENTE CONFIRMAR]';
 
-  const clienteRecord = await searchOne<ClientesFields>(
-    config.airtable.tableClientes,
-    `{phone_number_id} = "${escapeFormulaValue(ctx.phoneNumberId)}"`
+  const clienteRecord = await queryOne<ClienteRow>(
+    'SELECT id FROM clientes WHERE phone_number_id = $1',
+    [ctx.phoneNumberId]
   );
   if (!clienteRecord) {
-    throw new Error(`Clientes: no se encontro registro para phone_number_id ${ctx.phoneNumberId}`);
+    throw new Error(`clientes: no se encontro registro para phone_number_id ${ctx.phoneNumberId}`);
   }
 
-  const tipos = await listarTiposCita(clienteAgenda.fields.cliente);
+  const tipos = await listarTiposCita(clienteAgenda.id);
   const tipoCitaRecord = buscarTipoCita(tipos, input.tipo_cita);
   if (!tipoCitaRecord) {
-    throw new Error(`TiposCita: no se encontro "${input.tipo_cita}" para el cliente ${clienteAgenda.fields.cliente}`);
+    throw new Error(`tipos_cita: no se encontro "${input.tipo_cita}" para clientes_agenda_id ${clienteAgenda.id}`);
   }
 
   const NO_DISPONIBLE: CrearHoldResultado = {
@@ -98,26 +99,31 @@ export async function crearHold(
       fin: input.fin,
     });
 
-    await upsert(
-      config.airtable.tableReservas,
-      {
-        reserva_id: ctx.toolUseId,
-        conv_id: ctx.convId,
-        wa_id: ctx.waId,
-        phone_number_id: ctx.phoneNumberId,
-        cliente: [clienteRecord.id],
-        tipo_cita: [tipoCitaRecord.id],
-        inicio: input.inicio,
-        fin: input.fin,
-        nombre: input.nombre,
-        telefono: input.telefono,
-        event_id: eventId,
+    await query(
+      `INSERT INTO reservas (
+         reserva_id, conv_id, wa_id, phone_number_id, cliente_id, tipo_cita_id,
+         inicio, fin, nombre, telefono, event_id, calendar_id, estado, notificado, creado_en
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'activa', false, now())
+       ON CONFLICT (reserva_id) DO UPDATE SET
+         conv_id = EXCLUDED.conv_id, wa_id = EXCLUDED.wa_id, phone_number_id = EXCLUDED.phone_number_id,
+         cliente_id = EXCLUDED.cliente_id, tipo_cita_id = EXCLUDED.tipo_cita_id,
+         inicio = EXCLUDED.inicio, fin = EXCLUDED.fin, nombre = EXCLUDED.nombre,
+         telefono = EXCLUDED.telefono, event_id = EXCLUDED.event_id, calendar_id = EXCLUDED.calendar_id,
+         estado = 'activa', notificado = false`,
+      [
+        ctx.toolUseId,
+        ctx.convId,
+        ctx.waId,
+        ctx.phoneNumberId,
+        clienteRecord.id,
+        tipoCitaRecord.id,
+        input.inicio,
+        input.fin,
+        input.nombre,
+        input.telefono,
+        eventId,
         calendar_id,
-        estado: 'activa',
-        notificado: false,
-        creado_en: new Date().toISOString(),
-      },
-      'reserva_id'
+      ]
     );
 
     return {

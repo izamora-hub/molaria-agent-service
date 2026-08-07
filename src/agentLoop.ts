@@ -128,7 +128,7 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
         clienteNombre: req.cliente_nombre,
       });
     } catch (err) {
-      // Fallo real ejecutando la herramienta (Calendar/Airtable caidos): no es
+      // Fallo real ejecutando la herramienta (Calendar/Postgres caidos): no es
       // un resultado de negocio como "hueco_no_disponible", asi que se
       // propaga como error de la llamada completa en vez de devolverselo a Claude.
       throw err;
