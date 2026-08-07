@@ -2,6 +2,7 @@ import express from 'express';
 import { config } from './config';
 import { requireBearerAuth } from './auth';
 import { runAgentLoop } from './agentLoop';
+import { adquirirLockConversacion, liberarLockConversacion } from './clients/conversationLock';
 import { AgentRunRequest } from './types';
 
 const app = express();
@@ -42,6 +43,29 @@ app.post('/agent/run', requireBearerAuth, async (req, res) => {
       },
     });
   }
+});
+
+// Lock de conversacion (C-02 auditoria): n8n orquesta cuando adquirir/liberar
+// dentro de su pipeline, pero la coordinacion real (SET NX con token, DEL
+// condicionado) vive aqui - ver clients/conversationLock.ts.
+app.post('/lock/acquire', requireBearerAuth, async (req, res) => {
+  const convId = (req.body as { conv_id?: string }).conv_id;
+  if (!convId) {
+    res.status(400).json({ error: { codigo: 'payload_invalido', mensaje: 'Falta el campo conv_id' } });
+    return;
+  }
+  const token = await adquirirLockConversacion(convId);
+  res.json({ acquired: token !== null, token });
+});
+
+app.post('/lock/release', requireBearerAuth, async (req, res) => {
+  const body = req.body as { conv_id?: string; token?: string };
+  if (!body.conv_id || !body.token) {
+    res.status(400).json({ error: { codigo: 'payload_invalido', mensaje: 'Falta conv_id o token' } });
+    return;
+  }
+  await liberarLockConversacion(body.conv_id, body.token);
+  res.json({ ok: true });
 });
 
 app.listen(config.port, () => {

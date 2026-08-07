@@ -5,7 +5,7 @@ import { crearHold } from './tools/crearHold';
 import { cancelarCita } from './tools/cancelarCita';
 import { reprogramarCita } from './tools/reprogramarCita';
 import { AgentRunRequest, AgentRunSuccess, ClaudeMessage } from './types';
-import { getCachedAgentRun, cacheAgentRun } from './clients/redisCache';
+import { getCachedAgentRun, cacheAgentRun, marcarProcesando, esperarResultado } from './clients/redisCache';
 import { logAgente } from './clients/logAgente';
 
 // Limite de vueltas del loop real. A diferencia de n8n (donde el loop estaba
@@ -62,6 +62,19 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
   // en vez de volver a ejecutarse. Ver clients/redisCache.ts.
   const cacheado = await getCachedAgentRun(req.wamid);
   if (cacheado) return cacheado;
+
+  // C-01 (auditoria): lo de arriba no bastaba - un reintento que llega mientras
+  // el primer intento AUN esta en marcha (timeout de n8n a los 60s con Claude+
+  // tools todavia trabajando) no encontraba nada cacheado y ejecutaba el turno
+  // entero otra vez en paralelo, duplicando holds/cancelaciones. marcarProcesando
+  // reserva la clave nada mas empezar; si otra ejecucion ya la reservo, esta
+  // espera su resultado real en vez de repetir el turno.
+  const soyElPrimero = await marcarProcesando(req.wamid);
+  if (!soyElPrimero) {
+    const esperado = await esperarResultado(req.wamid, 90_000);
+    if (esperado) return esperado;
+    throw new Error(`runAgentLoop: timeout esperando resultado concurrente para wamid ${req.wamid}`);
+  }
 
   const pregunta = ultimaPreguntaPaciente(req.messages);
   const messages: ClaudeMessage[] = [...req.messages];
