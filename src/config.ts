@@ -9,6 +9,7 @@ function required(name: string): string {
 export const config = {
   port: Number(process.env.PORT || 3000),
   agentServiceSecret: required('AGENT_SERVICE_SECRET'),
+  whatsappAppSecret: required('WHATSAPP_APP_SECRET'),
   anthropicApiKey: required('ANTHROPIC_API_KEY'),
   db: {
     // Postgres-TyAZ en Railway (sustituye a Airtable). Usar la variable interna del

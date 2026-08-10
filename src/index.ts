@@ -3,6 +3,7 @@ import { config } from './config';
 import { requireBearerAuth } from './auth';
 import { runAgentLoop } from './agentLoop';
 import { adquirirLockConversacion, liberarLockConversacion } from './clients/conversationLock';
+import { verificarFirmaWhatsapp } from './verificarFirma';
 import { AgentRunRequest } from './types';
 
 const app = express();
@@ -56,6 +57,20 @@ app.post('/lock/acquire', requireBearerAuth, async (req, res) => {
   }
   const token = await adquirirLockConversacion(convId);
   res.json({ acquired: token !== null, token });
+});
+
+// Verificacion de firma del webhook de WhatsApp (A-04 auditoria): n8n manda
+// el body crudo en base64 + el header X-Hub-Signature-256, aqui se calcula
+// el HMAC contra el secreto (env var, nunca en un log de n8n) - ver
+// verificarFirma.ts.
+app.post('/verify-signature', requireBearerAuth, async (req, res) => {
+  const body = req.body as { bodyBase64?: string; signature?: string | null };
+  if (!body.bodyBase64) {
+    res.status(400).json({ error: { codigo: 'payload_invalido', mensaje: 'Falta el campo bodyBase64' } });
+    return;
+  }
+  const valid = verificarFirmaWhatsapp(body.bodyBase64, body.signature);
+  res.json({ valid });
 });
 
 app.post('/lock/release', requireBearerAuth, async (req, res) => {
