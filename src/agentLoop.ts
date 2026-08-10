@@ -76,14 +76,6 @@ export async function runAgentLoop(req: AgentRunRequest): Promise<AgentRunSucces
     throw new Error(`runAgentLoop: timeout esperando resultado concurrente para wamid ${req.wamid}`);
   }
 
-  // TEMPORAL - prueba de estres C-01/C-02: mandar "TEST_LENTO_60S" por WhatsApp
-  // fuerza un retraso >60s para que n8n haga timeout y reintente de verdad.
-  // QUITAR este bloque despues de probar.
-  if (JSON.stringify(req.messages).includes('TEST_LENTO_60S')) {
-    console.log(`[TEST] Simulando respuesta lenta (65s) para wamid ${req.wamid}...`);
-    await new Promise((resolve) => setTimeout(resolve, 65_000));
-  }
-
   const pregunta = ultimaPreguntaPaciente(req.messages);
   const messages: ClaudeMessage[] = [...req.messages];
   let herramientaUsada: AgentRunSuccess['herramienta_usada'] = null;
