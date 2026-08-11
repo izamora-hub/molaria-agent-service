@@ -31,7 +31,7 @@ export interface ReservaRow {
   telefono: string;
   event_id: string;
   calendar_id: string;
-  estado: 'activa' | 'cancelada' | 'confirmada' | 'rechazada' | 'recordada';
+  estado: 'activa' | 'cancelada' | 'confirmada' | 'rechazada';
   notificado: boolean;
   creado_en: string | null;
   cancelada_en: string | null;
