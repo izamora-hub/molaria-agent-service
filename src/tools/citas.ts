@@ -78,9 +78,14 @@ export async function buscarReservaCancelable(
   telefono: string,
   inicioDesambiguar: string | undefined
 ): Promise<BuscarReservaResultado> {
+  // Comparacion por digitos, no por string exacto: el telefono guardado puede
+  // llevar espacios/guiones (ej. citas sincronizadas a mano desde el calendario,
+  // ver ConciliarEventos) y no tiene por que coincidir caracter a caracter con
+  // lo que el paciente teclea esta vez.
   let reservas = await query<ReservaRow>(
     `SELECT * FROM reservas
-     WHERE estado = 'activa' AND phone_number_id = $1 AND telefono = $2
+     WHERE estado = 'activa' AND phone_number_id = $1
+       AND regexp_replace(telefono, '\\D', '', 'g') = regexp_replace($2, '\\D', '', 'g')
      ORDER BY inicio`,
     [phoneNumberId, telefono]
   );
