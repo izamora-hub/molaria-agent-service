@@ -63,3 +63,61 @@ export interface ReprogramarCitaInput {
   nuevo_inicio: string;
   nuevo_fin: string;
 }
+
+export interface AltaFranja {
+  desde: string;
+  hasta: string;
+}
+
+export interface AltaHorarioDia {
+  dia: string;
+  cerrado: boolean;
+  franjas: AltaFranja[];
+}
+
+export interface AltaServicio {
+  nombre: string;
+  precio_eur: number | null;
+  nota: string | null;
+}
+
+export interface AltaTipoCita {
+  nombre: string;
+  duracion_min: number;
+  colchon_min: number;
+}
+
+export interface AltaFaq {
+  pregunta: string;
+  respuesta: string;
+  marcada_para_revision: boolean;
+}
+
+export interface AltaClinica {
+  nombre: string;
+  direccion: string;
+  telefono_derivacion: string;
+  email_avisos: string;
+}
+
+export interface AltaCondiciones {
+  mutuas: boolean;
+  mutuas_detalle: string | null;
+  financiacion: boolean;
+  financiacion_detalle: string | null;
+}
+
+export interface AltaPayload {
+  token: string;
+  enviado_en: string;
+  requiere_revision: boolean;
+  website?: string; // honeypot - nunca deberia venir relleno
+  clinica: AltaClinica;
+  horarios: AltaHorarioDia[];
+  servicios: AltaServicio[];
+  tipos_cita: AltaTipoCita[];
+  condiciones: AltaCondiciones;
+  faqs: AltaFaq[];
+  no_afirmar: string[];
+  notas: string | null;
+}

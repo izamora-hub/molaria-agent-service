@@ -15,15 +15,24 @@ limite duro de 2 llamadas a herramienta por turno, y el algoritmo de huecos
 (`Huecos`) sin ningun test posible. Aqui el loop es un bucle real, con tipos y
 tests.
 
-## Endpoint
+## Endpoints
 
-`POST /agent/run` (ver `src/types.ts` para el contrato exacto de entrada/salida).
+`POST /agent/run`, `/lock/acquire`, `/lock/release`, `/verify-signature` (ver
+`src/types.ts` para el contrato exacto de entrada/salida de `/agent/run`).
 
 Autenticacion: header `Authorization: Bearer <AGENT_SERVICE_SECRET>`. En n8n,
 configurar como una credencial "HTTP Header Auth" (igual que `meta2` para
 WhatsApp) — nunca como expresion `$env` dentro de un nodo, que en la instancia
 de MolarIA esta bloqueado tanto en nodos Code como en campos de expresion de
 Set.
+
+`POST /alta` — formulario de alta/configuracion de clinica (servido de forma
+estatica desde Cloudflare, `https://molaria.app`). Publico, sin Bearer auth:
+protegido por CORS (solo ese origen), honeypot, rate limit por IP y un token
+de un solo uso (`tokens_alta`, generado con `npm run alta:token`). Solo
+guarda el payload en `altas_pendientes` — nunca escribe en `clientes` ni
+`tipos_cita`, eso es un paso manual posterior. Ver `src/altaValidation.ts`
+para las reglas de validacion.
 
 ## Desarrollo
 
