@@ -1,4 +1,4 @@
-import { queryOne } from '../clients/db';
+import { queryOneRetry } from '../clients/db';
 import { enviarEmail } from '../clients/resend';
 import { logError } from '../clients/logError';
 import { buscarCliente, buscarReservaCancelable, marcarCancelada, BuscarReservaResultado } from './citas';
@@ -25,7 +25,7 @@ export async function reprogramarCita(
 
   const tipoCitaId = reservaAnterior.tipo_cita_id;
   const tipoCitaTexto = tipoCitaId
-    ? (await queryOne<{ nombre_tipo: string }>('SELECT nombre_tipo FROM tipos_cita WHERE id = $1', [tipoCitaId]))
+    ? (await queryOneRetry<{ nombre_tipo: string }>('SELECT nombre_tipo FROM tipos_cita WHERE id = $1', [tipoCitaId]))
         ?.nombre_tipo ?? ''
     : '';
 

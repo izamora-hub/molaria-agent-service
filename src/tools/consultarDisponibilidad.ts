@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { queryOne } from '../clients/db';
+import { queryOneRetry } from '../clients/db';
 import { freeBusy } from '../clients/googleCalendar';
 import { calcularHuecos, HorarioSemana, Ventana } from './huecos';
 import { listarTiposCita, buscarTipoCita } from './tiposCita';
@@ -31,7 +31,7 @@ export async function consultarDisponibilidad(
   phoneNumberId: string,
   input: ConsultarDisponibilidadInput
 ): Promise<ConsultarDisponibilidadResultado> {
-  const clienteAgenda = await queryOne<ClientesAgendaRow>(
+  const clienteAgenda = await queryOneRetry<ClientesAgendaRow>(
     `SELECT ca.id, ca.timezone, ca.horizonte_dias, ca.antelacion_min_horas, ca.calendar_id
      FROM clientes_agenda ca JOIN clientes c ON c.id = ca.cliente_id
      WHERE c.phone_number_id = $1 AND ca.activo = true`,

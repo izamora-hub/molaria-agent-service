@@ -1,4 +1,4 @@
-import { query, queryOne } from '../clients/db';
+import { query, queryOneRetry } from '../clients/db';
 import { freeBusy, createTentativeEvent } from '../clients/googleCalendar';
 import { adquirirLockHueco, liberarLockHueco } from '../clients/redisLock';
 import { listarTiposCita, buscarTipoCita } from './tiposCita';
@@ -36,7 +36,7 @@ export async function crearHold(
   ctx: { phoneNumberId: string; convId: string; waId: string; clienteNombre: string; toolUseId: string },
   input: CrearHoldInput
 ): Promise<CrearHoldResultado> {
-  const clienteAgenda = await queryOne<ClientesAgendaRow>(
+  const clienteAgenda = await queryOneRetry<ClientesAgendaRow>(
     `SELECT ca.id, ca.calendar_id, ca.timezone, ca.prefijo_hold
      FROM clientes_agenda ca JOIN clientes c ON c.id = ca.cliente_id
      WHERE c.phone_number_id = $1`,
@@ -49,7 +49,7 @@ export async function crearHold(
   const tz = timezone || 'Europe/Madrid';
   const prefijoHold = clienteAgenda.prefijo_hold || '[PENDIENTE CONFIRMAR]';
 
-  const clienteRecord = await queryOne<ClienteRow>(
+  const clienteRecord = await queryOneRetry<ClienteRow>(
     'SELECT id FROM clientes WHERE phone_number_id = $1',
     [ctx.phoneNumberId]
   );

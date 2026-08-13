@@ -1,4 +1,4 @@
-import { query } from '../clients/db';
+import { queryRetry } from '../clients/db';
 import { norm } from './huecos';
 
 export interface TipoCitaFields {
@@ -16,7 +16,7 @@ export async function listarTiposCita(clientesAgendaId: string): Promise<TipoCit
   // dias_reservables::text[] - pg no trae un parser de array registrado para un
   // ENUM propio (dia_semana_t[]), asi que sin el cast llega como el string
   // literal de Postgres ("{lunes,martes}") en vez de un array de JS.
-  return query<TipoCitaFields>(
+  return queryRetry<TipoCitaFields>(
     `SELECT id, nombre_tipo, duracion_min, colchon_min, redondeo_min, activo,
             dias_reservables::text[] AS dias_reservables
      FROM tipos_cita WHERE clientes_agenda_id = $1 AND activo = true`,

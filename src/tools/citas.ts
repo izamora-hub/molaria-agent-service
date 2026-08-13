@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { query, queryOne } from '../clients/db';
+import { query, queryRetry, queryOneRetry } from '../clients/db';
 import { deleteEvent } from '../clients/googleCalendar';
 import { logError } from '../clients/logError';
 
@@ -38,7 +38,7 @@ export interface ReservaRow {
 }
 
 export async function buscarCliente(phoneNumberId: string): Promise<ClienteRow> {
-  const cliente = await queryOne<ClienteRow>(
+  const cliente = await queryOneRetry<ClienteRow>(
     'SELECT * FROM clientes WHERE phone_number_id = $1',
     [phoneNumberId]
   );
@@ -82,7 +82,7 @@ export async function buscarReservaCancelable(
   // llevar espacios/guiones (ej. citas sincronizadas a mano desde el calendario,
   // ver ConciliarEventos) y no tiene por que coincidir caracter a caracter con
   // lo que el paciente teclea esta vez.
-  let reservas = await query<ReservaRow>(
+  let reservas = await queryRetry<ReservaRow>(
     `SELECT * FROM reservas
      WHERE estado = 'activa' AND phone_number_id = $1
        AND regexp_replace(telefono, '\\D', '', 'g') = regexp_replace($2, '\\D', '', 'g')
@@ -90,7 +90,7 @@ export async function buscarReservaCancelable(
     [phoneNumberId, telefono]
   );
 
-  const clienteAgenda = await queryOne<{ timezone: string | null }>(
+  const clienteAgenda = await queryOneRetry<{ timezone: string | null }>(
     `SELECT ca.timezone
      FROM clientes_agenda ca JOIN clientes c ON c.id = ca.cliente_id
      WHERE c.phone_number_id = $1`,

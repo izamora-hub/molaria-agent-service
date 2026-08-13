@@ -15,20 +15,41 @@ export interface FreeBusyResult {
   busy: { start: string; end: string }[];
 }
 
+// AGD-05: reintento porque es una consulta de solo lectura - repetirla tras un
+// blip transitorio de la API de Calendar nunca duplica nada. Solo 1 reintento
+// y espera corta a proposito: crearHold.ts llama a freeBusy DOS veces dentro
+// del lock de hueco (TTL de 10s, dimensionado justo para eso - ver
+// redisLock.ts) - un reintento largo aqui podria comerse ese margen y
+// reabrir la ventana de doble-booking que el lock existe para cerrar.
+async function conReintento<T>(fn: () => Promise<T>, intentos = 2, esperaMs = 200): Promise<T> {
+  let ultimoError: unknown;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      ultimoError = err;
+      if (i < intentos - 1) await new Promise((r) => setTimeout(r, esperaMs * (i + 1)));
+    }
+  }
+  throw ultimoError;
+}
+
 export async function freeBusy(
   calendarId: string,
   timeMin: string,
   timeMax: string,
   timeZone: string
 ): Promise<FreeBusyResult> {
-  const res = await calendar.freebusy.query({
-    requestBody: { timeMin, timeMax, timeZone, items: [{ id: calendarId }] },
+  return conReintento(async () => {
+    const res = await calendar.freebusy.query({
+      requestBody: { timeMin, timeMax, timeZone, items: [{ id: calendarId }] },
+    });
+    const cal = res.data.calendars?.[calendarId];
+    if (!cal || cal.errors?.length) {
+      throw new Error(`freeBusy no devolvio el calendario ${calendarId}`);
+    }
+    return { busy: (cal.busy ?? []).map((b) => ({ start: b.start!, end: b.end! })) };
   });
-  const cal = res.data.calendars?.[calendarId];
-  if (!cal || cal.errors?.length) {
-    throw new Error(`freeBusy no devolvio el calendario ${calendarId}`);
-  }
-  return { busy: (cal.busy ?? []).map((b) => ({ start: b.start!, end: b.end! })) };
 }
 
 export async function createTentativeEvent(params: {

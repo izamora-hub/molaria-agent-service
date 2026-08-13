@@ -31,3 +31,36 @@ export async function queryOne<T extends QueryResultRow = QueryResultRow>(
   const rows = await query<T>(text, params);
   return rows[0] ?? null;
 }
+
+// AGD-05: reintento solo para lecturas (SELECT) - repetir una lectura tras un
+// blip transitorio de conexion nunca duplica ni corrompe nada. NO usar con
+// escrituras (INSERT/UPDATE): si el primer intento SI llego a ejecutarse en el
+// servidor pero la respuesta se perdio por el camino, reintentar la dispararia
+// dos veces. query()/queryOne() de arriba se quedan sin reintento a proposito
+// para eso.
+async function conReintento<T>(fn: () => Promise<T>, intentos = 3, esperaMs = 300): Promise<T> {
+  let ultimoError: unknown;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      ultimoError = err;
+      if (i < intentos - 1) await new Promise((r) => setTimeout(r, esperaMs * (i + 1)));
+    }
+  }
+  throw ultimoError;
+}
+
+export async function queryRetry<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params?: unknown[]
+): Promise<T[]> {
+  return conReintento(() => query<T>(text, params));
+}
+
+export async function queryOneRetry<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params?: unknown[]
+): Promise<T | null> {
+  return conReintento(() => queryOne<T>(text, params));
+}
