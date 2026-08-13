@@ -13,9 +13,14 @@
 // La URL base del formulario se lee de la variable de entorno FORM_BASE_URL
 // (por defecto https://molaria.app/alta) - nunca hardcodeada aparte de ese
 // default, para no atarse a un dominio fijo si cambia.
+//
+// Deliberadamente NO importa src/clients/db.ts / src/config.ts: ese config
+// exige TODAS las variables de entorno del servicio (Telegram, Resend,
+// Google, WhatsApp...) solo por importarse, aunque este script solo necesita
+// DATABASE_URL. Pool propio y minimo en su lugar.
 
 import { randomBytes } from 'crypto';
-import { query } from '../src/clients/db';
+import { Pool } from 'pg';
 
 function leerArg(nombre: string): string | undefined {
   const prefijo = `--${nombre}=`;
@@ -24,6 +29,11 @@ function leerArg(nombre: string): string | undefined {
 }
 
 async function main() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('Falta la variable de entorno DATABASE_URL');
+  }
+
   const clienteId = leerArg('cliente-id') ?? null;
   const dias = Number(leerArg('dias') ?? '14');
   if (!Number.isFinite(dias) || dias <= 0) {
@@ -34,11 +44,16 @@ async function main() {
   const token = randomBytes(24).toString('base64url');
   const expiraEn = new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString();
 
-  await query('INSERT INTO tokens_alta (token, cliente_id, expira_en) VALUES ($1, $2, $3)', [
-    token,
-    clienteId,
-    expiraEn,
-  ]);
+  const pool = new Pool({ connectionString });
+  try {
+    await pool.query('INSERT INTO tokens_alta (token, cliente_id, expira_en) VALUES ($1, $2, $3)', [
+      token,
+      clienteId,
+      expiraEn,
+    ]);
+  } finally {
+    await pool.end();
+  }
 
   console.log(`Token generado (caduca ${expiraEn}, cliente_id=${clienteId ?? 'NULL'}):`);
   console.log(`${baseUrl}?token=${token}`);
