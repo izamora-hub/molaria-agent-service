@@ -56,7 +56,7 @@ async function main() {
   }
 
   console.log(`Token generado (caduca ${expiraEn}, cliente_id=${clienteId ?? 'NULL'}):`);
-  console.log(`${baseUrl}?token=${token}`);
+  console.log(`${baseUrl}?t=${token}`);
 }
 
 main()
