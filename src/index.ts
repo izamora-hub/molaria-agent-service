@@ -8,10 +8,12 @@ import { query, queryOneRetry } from './clients/db';
 import { rateLimitExcedido } from './clients/rateLimit';
 import { enviarTelegram } from './clients/telegram';
 import { validarAlta } from './altaValidation';
+import { panelAuthRoutes } from './panelAuthRoutes';
 import { AgentRunRequest, AltaPayload } from './types';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
+app.use('/panel/auth', panelAuthRoutes);
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
