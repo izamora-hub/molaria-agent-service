@@ -9,6 +9,7 @@ import { rateLimitExcedido } from './clients/rateLimit';
 import { enviarTelegram } from './clients/telegram';
 import { validarAlta } from './altaValidation';
 import { panelAuthRoutes } from './panelAuthRoutes';
+import { purgarCaducados, contarCaducados } from './purgarCaducados';
 import { AgentRunRequest, AltaPayload } from './types';
 
 const app = express();
@@ -87,6 +88,22 @@ app.post('/lock/release', requireBearerAuth, async (req, res) => {
   }
   await liberarLockConversacion(body.conv_id, body.token);
   res.json({ ok: true });
+});
+
+// 1-03: cron de retencion, llamado por un Schedule Trigger en n8n (no vive
+// aqui como node-cron para no depender de que este proceso concreto siga vivo
+// a la hora programada). ?dry_run=1 solo cuenta, no borra - usado para
+// verificar antes de dejarlo en el schedule real.
+app.post('/admin/purgar-caducados', requireBearerAuth, async (req, res) => {
+  try {
+    const resultado = req.query.dry_run === '1' ? await contarCaducados() : await purgarCaducados();
+    res.json({ ok: true, dry_run: req.query.dry_run === '1', ...resultado });
+  } catch (err) {
+    console.error('Error en purgarCaducados:', err);
+    res.status(500).json({
+      error: { codigo: 'fallo_purga', mensaje: err instanceof Error ? err.message : 'Error desconocido' },
+    });
+  }
 });
 
 // Alta/configuracion de clinica: recibe el payload del formulario estatico
