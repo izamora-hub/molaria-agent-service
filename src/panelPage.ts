@@ -105,6 +105,14 @@ async function api(path, opts) {
   return { status: r.status, body };
 }
 
+// El agente escribe en formato WhatsApp (*negrita* con un solo asterisco, ver
+// REGLAS_DENTAL en Componer) - sin esto el asterisco crudo se ve literal en
+// el panel en vez de renderizarse (revision 2026-08-19).
+function formatearTexto(texto) {
+  const escapado = String(texto).replace(/</g, '&lt;');
+  return escapado.replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
+}
+
 function fmtFecha(iso) {
   return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
@@ -181,7 +189,7 @@ async function cargarLista(q) {
     '<div class="conv" data-id="' + c.id + '">' +
       '<span class="fecha">' + fmtFecha(c.ultima_actividad) + '</span>' +
       '<div class="tel">' + c.telefono_enmascarado + '</div>' +
-      '<div class="snippet">' + (c.ultimo_mensaje || '').replace(/</g, '&lt;') + '</div>' +
+      '<div class="snippet">' + formatearTexto(c.ultimo_mensaje || '') + '</div>' +
     '</div>'
   ).join('');
   document.querySelectorAll('.conv').forEach((el) => {
@@ -208,7 +216,7 @@ async function abrirDetalle(id) {
   $('detalleContenido').innerHTML =
     '<p><strong>' + body.telefono_enmascarado + '</strong> &middot; ' + fmtFecha(body.ultima_actividad) + '</p>' +
     body.mensajes.map((m) =>
-      '<div class="msg ' + m.role + '">' + m.texto.replace(/</g, '&lt;') + '</div>'
+      '<div class="msg ' + m.role + '">' + formatearTexto(m.texto) + '</div>'
     ).join('');
 }
 
