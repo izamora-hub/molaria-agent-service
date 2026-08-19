@@ -9,12 +9,21 @@ import { rateLimitExcedido } from './clients/rateLimit';
 import { enviarTelegram } from './clients/telegram';
 import { validarAlta } from './altaValidation';
 import { panelAuthRoutes } from './panelAuthRoutes';
+import { panelConversacionesRoutes } from './panelConversacionesRoutes';
+import { panelPageHtml } from './panelPage';
 import { purgarCaducados, contarCaducados } from './purgarCaducados';
 import { AgentRunRequest, AltaPayload } from './types';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use('/panel/auth', panelAuthRoutes);
+app.use('/panel/api', panelConversacionesRoutes);
+
+// 1-06: pagina unica del panel (login + listado + detalle), todo client-side
+// contra las rutas de arriba - ver panelPage.ts.
+app.get('/panel', (_req, res) => {
+  res.type('html').send(panelPageHtml);
+});
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true });
