@@ -4,6 +4,7 @@ import { rateLimitExcedido } from './clients/rateLimit';
 import { enviarEmail } from './clients/resend';
 import { emitirTokenMagicLink, consumirTokenMagicLink, crearSesion, borrarSesion } from './clients/redisSession';
 import { fijarCookieSesion, borrarCookieSesion, requireSesionPanel, RequestConSesion } from './panelAuth';
+import { registrarAuditoria } from './panelAuditoria';
 
 export const panelAuthRoutes = Router();
 
@@ -90,6 +91,7 @@ panelAuthRoutes.post('/verificar', async (req, res) => {
   }
   const sessionId = await crearSesion(clienteId);
   fijarCookieSesion(res, sessionId);
+  await registrarAuditoria(req, { clienteId, tipo: 'login' });
   res.json({ ok: true });
 });
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { queryPanel, queryOnePanel } from './clients/dbPanel';
 import { requireSesionPanel, RequestConSesion } from './panelAuth';
+import { registrarAuditoria } from './panelAuditoria';
 import { ClaudeMessage } from './types';
 
 export const panelConversacionesRoutes = Router();
@@ -116,6 +117,8 @@ panelConversacionesRoutes.get('/conversaciones/:id', requireSesionPanel, async (
     res.status(404).json({ error: { codigo: 'no_encontrada', mensaje: 'Conversacion no encontrada' } });
     return;
   }
+
+  await registrarAuditoria(req, { clienteId: cliente.id, tipo: 'lectura_conversacion', conversacionId: fila.id });
 
   const waId = fila.conv_id.split('_').slice(1).join('_');
   const mensajes = (fila.historial ?? [])
