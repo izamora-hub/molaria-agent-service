@@ -87,7 +87,7 @@ export const panelPageHtml = `<!doctype html>
       </div>
     </div>
     <div id="vistaConversaciones" style="display:none">
-      <input id="buscador" type="text" placeholder="Buscar por telefono...">
+      <input id="buscador" type="text" placeholder="Buscar por teléfono...">
       <div id="lista"></div>
       <div id="detalle" style="display:none">
         <button id="volver">&larr; Volver</button>
@@ -202,7 +202,7 @@ async function abrirDetalle(id) {
   $('detalleContenido').innerHTML = 'Cargando...';
   const { status, body } = await api('/panel/api/conversaciones/' + id);
   if (status !== 200) {
-    $('detalleContenido').innerHTML = '<div class="error">No se pudo cargar la conversacion.</div>';
+    $('detalleContenido').innerHTML = '<div class="error">No se pudo cargar la conversación.</div>';
     return;
   }
   $('detalleContenido').innerHTML =

@@ -11,9 +11,10 @@ const LIMITE_LISTADO = 50;
 // "revelar" todavia - la ficha de la tarea lo deja como opcional
 // ("si se justifica") y no se ha pedido, mejor no abrir esa superficie
 // hasta que haga falta de verdad.
+const MASCARA_PUNTOS = 6; // fijo: la longitud real del numero no debe filtrarse por el numero de puntos
 function enmascararTelefono(numero: string): string {
-  if (numero.length <= 3) return '•'.repeat(numero.length);
-  return '•'.repeat(numero.length - 3) + numero.slice(-3);
+  if (numero.length <= 3) return '•'.repeat(MASCARA_PUNTOS);
+  return '•'.repeat(MASCARA_PUNTOS) + numero.slice(-3);
 }
 
 // Historial mezcla content como string (mensajes de usuario, ver Componer en
