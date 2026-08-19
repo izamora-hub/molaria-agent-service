@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { queryPanel, queryOnePanel } from './clients/dbPanel';
 import { requireSesionPanel, RequestConSesion } from './panelAuth';
 import { registrarAuditoria } from './panelAuditoria';
+import { obtenerClientePanel } from './panelCliente';
 import { ClaudeMessage } from './types';
 
 export const panelConversacionesRoutes = Router();
@@ -30,15 +31,6 @@ function extraerTextoMensaje(content: ClaudeMessage['content']): string {
     .join('\n');
 }
 
-interface ClientePanel {
-  id: string;
-  phone_number_id: string;
-}
-
-async function obtenerClientePanel(clienteId: string): Promise<ClientePanel | null> {
-  return queryOnePanel<ClientePanel>('SELECT id, phone_number_id FROM clientes WHERE id = $1', [clienteId]);
-}
-
 // Lista de conversaciones de la clinica autenticada (1-06). Aislamiento por
 // phone_number_id derivado de la sesion (1-02), nunca de un parametro de la
 // request - ver panelAuth.ts.
@@ -56,9 +48,13 @@ panelConversacionesRoutes.get('/conversaciones', requireSesionPanel, async (req:
      FROM conversaciones
      WHERE split_part(conv_id, '_', 1) = $1
        AND ($2 = '' OR split_part(conv_id, '_', 2) ILIKE '%' || $2 || '%')
+       AND NOT EXISTS (
+         SELECT 1 FROM unnest($3::text[]) AS prefijo
+         WHERE split_part(conv_id, '_', 2) LIKE prefijo || '%'
+       )
      ORDER BY ultima_actividad DESC
      LIMIT ${LIMITE_LISTADO}`,
-    [cliente.phone_number_id, q]
+    [cliente.phone_number_id, q, cliente.wa_ids_excluidos_prefijos]
   );
 
   const conversaciones = filas.map((fila) => {

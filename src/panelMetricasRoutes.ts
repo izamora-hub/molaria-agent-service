@@ -1,19 +1,11 @@
 import { Router } from 'express';
 import { queryOnePanel } from './clients/dbPanel';
 import { requireSesionPanel, RequestConSesion } from './panelAuth';
+import { obtenerClientePanel } from './panelCliente';
 
 export const panelMetricasRoutes = Router();
 
 const DIAS_RANGO_DEFECTO = 30;
-
-interface ClientePanel {
-  id: string;
-  phone_number_id: string;
-}
-
-async function obtenerClientePanel(clienteId: string): Promise<ClientePanel | null> {
-  return queryOnePanel<ClientePanel>('SELECT id, phone_number_id FROM clientes WHERE id = $1', [clienteId]);
-}
 
 function fechaValida(s: unknown): s is string {
   return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
@@ -42,13 +34,21 @@ panelMetricasRoutes.get('/metricas', requireSesionPanel, async (req: RequestConS
   const desde = fechaValida(req.query.desde) ? req.query.desde : hace30;
   const hasta = fechaValida(req.query.hasta) ? req.query.hasta : hoy;
 
+  // wa_ids_excluidos_prefijos (2026-08-19): mismo dato que usara el informe
+  // semanal para excluir wa_id de pruebas QA (ej. lote QATEST, prefijo 999) -
+  // ver clientes.wa_ids_excluidos_prefijos. Coincidencia por prefijo, no
+  // exacta: un valor completo tipo '610281801' actua como su propio prefijo.
   const conv = await queryOnePanel<{ n: string }>(
     `SELECT count(*) AS n
      FROM conversaciones c
      WHERE split_part(c.conv_id, '_', 1) = $1
        AND c.ultima_actividad >= $2::date
-       AND c.ultima_actividad < ($3::date + interval '1 day')`,
-    [cliente.phone_number_id, desde, hasta]
+       AND c.ultima_actividad < ($3::date + interval '1 day')
+       AND NOT EXISTS (
+         SELECT 1 FROM unnest($4::text[]) AS prefijo
+         WHERE split_part(c.conv_id, '_', 2) LIKE prefijo || '%'
+       )`,
+    [cliente.phone_number_id, desde, hasta, cliente.wa_ids_excluidos_prefijos]
   );
 
   const citas = await queryOnePanel<{ n: string }>(
@@ -56,8 +56,12 @@ panelMetricasRoutes.get('/metricas', requireSesionPanel, async (req: RequestConS
      FROM reservas r
      WHERE r.cliente_id = $1
        AND r.creado_en >= $2::date
-       AND r.creado_en < ($3::date + interval '1 day')`,
-    [cliente.id, desde, hasta]
+       AND r.creado_en < ($3::date + interval '1 day')
+       AND NOT EXISTS (
+         SELECT 1 FROM unnest($4::text[]) AS prefijo
+         WHERE r.wa_id LIKE prefijo || '%'
+       )`,
+    [cliente.id, desde, hasta, cliente.wa_ids_excluidos_prefijos]
   );
 
   // reagendada_de_id enlaza la reserva nueva con la cancelada al reprogramar
@@ -69,8 +73,12 @@ panelMetricasRoutes.get('/metricas', requireSesionPanel, async (req: RequestConS
      WHERE r.cliente_id = $1
        AND r.reagendada_de_id IS NOT NULL
        AND r.creado_en >= $2::date
-       AND r.creado_en < ($3::date + interval '1 day')`,
-    [cliente.id, desde, hasta]
+       AND r.creado_en < ($3::date + interval '1 day')
+       AND NOT EXISTS (
+         SELECT 1 FROM unnest($4::text[]) AS prefijo
+         WHERE r.wa_id LIKE prefijo || '%'
+       )`,
+    [cliente.id, desde, hasta, cliente.wa_ids_excluidos_prefijos]
   );
 
   res.json({
