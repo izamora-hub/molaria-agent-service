@@ -63,7 +63,20 @@ panelConversacionesRoutes.get('/conversaciones', requireSesionPanel, async (req:
   const conversaciones = filas.map((fila) => {
     const waId = fila.conv_id.split('_').slice(1).join('_');
     const historial = fila.historial ?? [];
-    const ultimoMensaje = historial.length ? extraerTextoMensaje(historial[historial.length - 1].content) : '';
+    // Ultimo mensaje del PACIENTE, no el ultimo del array (que suele ser el
+    // cierre del agente) - para supervisar interesa que pregunto, no como
+    // respondio el agente (revision 2026-08-19). role:'user' tambien cubre
+    // tool_result (ver agentLoop.ts) que no tiene texto - se descarta junto
+    // con el resto de mensajes de usuario vacios de contenido visible.
+    let ultimoMensaje = '';
+    for (let i = historial.length - 1; i >= 0; i--) {
+      if (historial[i].role !== 'user') continue;
+      const texto = extraerTextoMensaje(historial[i].content);
+      if (texto) {
+        ultimoMensaje = texto;
+        break;
+      }
+    }
     return {
       id: fila.id,
       ultima_actividad: fila.ultima_actividad,
