@@ -31,6 +31,15 @@ export const panelPageHtml = `<!doctype html>
   #volver { background: none; color: #555; padding: 4px 0; margin-bottom: 12px; }
   .vacio { color: #888; text-align: center; padding: 40px 0; }
   .error { color: #b00020; font-size: 13px; margin-top: 8px; }
+  #tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  #tabs button { background: none; color: #555; border: 1px solid #ddd; }
+  #tabs button.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  #rango { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+  #rango input[type=date] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
+  #stats { display: flex; gap: 12px; }
+  .stat { flex: 1; background: #fff; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .stat .num { font-size: 32px; font-weight: 700; }
+  .stat .label { font-size: 13px; color: #666; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -43,11 +52,29 @@ export const panelPageHtml = `<!doctype html>
     <p id="loginMsg"></p>
   </div>
   <div id="app" style="display:none">
-    <input id="buscador" type="text" placeholder="Buscar por telefono...">
-    <div id="lista"></div>
-    <div id="detalle" style="display:none">
-      <button id="volver">&larr; Volver</button>
-      <div id="detalleContenido"></div>
+    <div id="tabs">
+      <button id="tabMetricas" class="active">Métricas</button>
+      <button id="tabConversaciones">Conversaciones</button>
+    </div>
+    <div id="vistaMetricas">
+      <div id="rango">
+        <input type="date" id="desde">
+        <span>&ndash;</span>
+        <input type="date" id="hasta">
+        <button id="verMetricas">Ver</button>
+      </div>
+      <div id="stats">
+        <div class="stat"><div class="num" id="numConversaciones">&ndash;</div><div class="label">Conversaciones atendidas</div></div>
+        <div class="stat"><div class="num" id="numCitas">&ndash;</div><div class="label">Citas creadas</div></div>
+      </div>
+    </div>
+    <div id="vistaConversaciones" style="display:none">
+      <input id="buscador" type="text" placeholder="Buscar por telefono...">
+      <div id="lista"></div>
+      <div id="detalle" style="display:none">
+        <button id="volver">&larr; Volver</button>
+        <div id="detalleContenido"></div>
+      </div>
     </div>
   </div>
 </main>
@@ -70,7 +97,11 @@ async function comprobarSesion() {
     $('login').style.display = 'none';
     $('app').style.display = 'block';
     $('salir').style.display = 'inline-block';
-    cargarLista();
+    const hoy = new Date().toISOString().slice(0, 10);
+    const hace30 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    $('desde').value = hace30;
+    $('hasta').value = hoy;
+    cargarMetricas();
   } else {
     $('login').style.display = 'block';
     $('app').style.display = 'none';
@@ -90,6 +121,32 @@ $('salir').addEventListener('click', async () => {
   await api('/panel/auth/salir', { method: 'POST' });
   location.reload();
 });
+
+$('tabMetricas').addEventListener('click', () => {
+  $('tabMetricas').classList.add('active');
+  $('tabConversaciones').classList.remove('active');
+  $('vistaMetricas').style.display = 'block';
+  $('vistaConversaciones').style.display = 'none';
+});
+
+$('tabConversaciones').addEventListener('click', () => {
+  $('tabConversaciones').classList.add('active');
+  $('tabMetricas').classList.remove('active');
+  $('vistaConversaciones').style.display = 'block';
+  $('vistaMetricas').style.display = 'none';
+  if (!listaCache.length) cargarLista();
+});
+
+async function cargarMetricas() {
+  const desde = $('desde').value;
+  const hasta = $('hasta').value;
+  const { status, body } = await api('/panel/api/metricas?desde=' + desde + '&hasta=' + hasta);
+  if (status !== 200) return;
+  $('numConversaciones').textContent = body.conversaciones_atendidas;
+  $('numCitas').textContent = body.citas_creadas;
+}
+
+$('verMetricas').addEventListener('click', cargarMetricas);
 
 let listaCache = [];
 

@@ -10,6 +10,7 @@ import { enviarTelegram } from './clients/telegram';
 import { validarAlta } from './altaValidation';
 import { panelAuthRoutes } from './panelAuthRoutes';
 import { panelConversacionesRoutes } from './panelConversacionesRoutes';
+import { panelMetricasRoutes } from './panelMetricasRoutes';
 import { panelPageHtml } from './panelPage';
 import { purgarCaducados, contarCaducados } from './purgarCaducados';
 import { AgentRunRequest, AltaPayload } from './types';
@@ -18,6 +19,7 @@ const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use('/panel/auth', panelAuthRoutes);
 app.use('/panel/api', panelConversacionesRoutes);
+app.use('/panel/api', panelMetricasRoutes);
 
 // 1-06: pagina unica del panel (login + listado + detalle), todo client-side
 // contra las rutas de arriba - ver panelPage.ts.
