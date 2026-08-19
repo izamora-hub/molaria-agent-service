@@ -4,7 +4,7 @@ import { getRedisClient } from './redis';
 const PREFIJO_MAGIC = 'magic:';
 const PREFIJO_SESION = 'session:';
 const TTL_MAGIC_SEGUNDOS = 15 * 60;
-const TTL_SESION_SEGUNDOS = 14 * 24 * 60 * 60;
+const TTL_SESION_SEGUNDOS = 24 * 60 * 60; // 24h deslizante (decision 2026-08-19: 14 dias daba mala impresion de seguridad)
 
 export type Sesion = { cliente_id: string; rol: 'clinica' };
 

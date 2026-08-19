@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { leerSesion, Sesion } from './clients/redisSession';
 
 export const COOKIE_NOMBRE = 'panel_session';
-const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const MAX_AGE_MS = 24 * 60 * 60 * 1000; // debe coincidir con TTL_SESION_SEGUNDOS en redisSession.ts
 
 export interface RequestConSesion extends Request {
   sesion?: Sesion;

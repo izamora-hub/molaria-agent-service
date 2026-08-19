@@ -10,40 +10,57 @@ export const panelPageHtml = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panel MolarIA</title>
 <style>
-  :root { color-scheme: light; }
-  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #f7f7f8; color: #1a1a1a; }
-  header { padding: 16px 20px; background: #fff; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; }
-  header h1 { font-size: 16px; margin: 0; }
-  main { max-width: 720px; margin: 0 auto; padding: 16px; }
-  #login { max-width: 360px; margin: 80px auto; padding: 24px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-  #login input { width: 100%; box-sizing: border-box; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
-  button { padding: 10px 16px; border: none; border-radius: 6px; background: #1a1a1a; color: #fff; font-size: 14px; cursor: pointer; }
+  /* Paleta de marca real, extraida del PDF de informe semanal
+     (workflows/workflow-molaria-informe.json) - no inventada para esta pantalla. */
+  :root {
+    color-scheme: light;
+    --ink: #10302C;      /* texto principal / titulos */
+    --brand: #2E635E;    /* acentos, lineas, bordes */
+    --accent: #17A092;   /* highlights, acciones, numeros */
+    --body-text: #48635F;/* texto secundario */
+    --mint: #E6F7F2;     /* fondo de marca */
+  }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: var(--mint); color: var(--ink); }
+  header { padding: 16px 24px; background: #fff; border-bottom: 1px solid #d5ebe4; display: flex; align-items: center; justify-content: space-between; }
+  .marca { display: flex; align-items: center; gap: 10px; }
+  .marca .icono { width: 30px; height: 30px; border-radius: 8px; background: var(--ink); color: var(--mint); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+  .marca .wordmark { font-size: 17px; font-weight: 700; letter-spacing: -.2px; }
+  .marca .wordmark .ia { color: var(--accent); }
+  main { max-width: 720px; margin: 0 auto; padding: 20px 16px; }
+  #login { max-width: 360px; margin: 80px auto; padding: 28px; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(16,48,44,.08); }
+  #login p { color: var(--body-text); font-size: 14px; }
+  #login input { width: 100%; box-sizing: border-box; padding: 10px; margin: 8px 0; border: 1px solid #cfe4dd; border-radius: 6px; font-size: 14px; }
+  button { padding: 10px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .5; cursor: default; }
-  #buscador { width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
-  .conv { background: #fff; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
-  .conv .tel { font-weight: 600; font-size: 14px; }
-  .conv .fecha { font-size: 12px; color: #888; float: right; }
-  .conv .snippet { font-size: 13px; color: #555; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #detalle { background: #fff; border-radius: 8px; padding: 16px; }
+  #salir { background: none; color: var(--body-text); font-weight: 400; border: 1px solid #cfe4dd; }
+  #buscador { width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; border: 1px solid #cfe4dd; border-radius: 6px; font-size: 14px; }
+  .conv { background: #fff; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(16,48,44,.05); border: 1px solid #e4f2ed; }
+  .conv .tel { font-weight: 600; font-size: 14px; color: var(--ink); }
+  .conv .fecha { font-size: 12px; color: var(--body-text); float: right; }
+  .conv .snippet { font-size: 13px; color: var(--body-text); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #detalle { background: #fff; border-radius: 8px; padding: 16px; border: 1px solid #e4f2ed; }
   #detalle .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 80%; font-size: 14px; white-space: pre-wrap; }
-  #detalle .msg.user { background: #eef2ff; }
-  #detalle .msg.assistant { background: #f0f0f0; margin-left: auto; }
-  #volver { background: none; color: #555; padding: 4px 0; margin-bottom: 12px; }
-  .vacio { color: #888; text-align: center; padding: 40px 0; }
+  #detalle .msg.user { background: var(--mint); }
+  #detalle .msg.assistant { background: #f1f1ef; margin-left: auto; }
+  #volver { background: none; color: var(--body-text); padding: 4px 0; margin-bottom: 12px; }
+  .vacio { color: var(--body-text); text-align: center; padding: 40px 0; }
   .error { color: #b00020; font-size: 13px; margin-top: 8px; }
   #tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-  #tabs button { background: none; color: #555; border: 1px solid #ddd; }
-  #tabs button.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  #tabs button { background: none; color: var(--body-text); border: 1px solid #cfe4dd; font-weight: 500; }
+  #tabs button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
   #rango { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
-  #rango input[type=date] { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
+  #rango input[type=date] { padding: 8px; border: 1px solid #cfe4dd; border-radius: 6px; font-size: 13px; }
   #stats { display: flex; gap: 12px; }
-  .stat { flex: 1; background: #fff; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
-  .stat .num { font-size: 32px; font-weight: 700; }
-  .stat .label { font-size: 13px; color: #666; margin-top: 4px; }
+  .stat { flex: 1; background: #fff; border-radius: 8px; padding: 20px; text-align: center; border: 1px solid #e4f2ed; }
+  .stat .num { font-size: 32px; font-weight: 700; color: var(--accent); }
+  .stat .label { font-size: 13px; color: var(--body-text); margin-top: 4px; }
 </style>
 </head>
 <body>
-<header><h1>Panel MolarIA</h1><button id="salir" style="display:none">Salir</button></header>
+<header>
+  <div class="marca"><div class="icono">M</div><div class="wordmark">Molar<span class="ia">IA</span></div></div>
+  <button id="salir" style="display:none">Salir</button>
+</header>
 <main>
   <div id="login">
     <p>Introduce tu email para recibir un enlace de acceso.</p>
