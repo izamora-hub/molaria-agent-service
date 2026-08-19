@@ -33,7 +33,14 @@ async function huecoLibre(calendarId: string, timezone: string, inicio: string, 
 }
 
 export async function crearHold(
-  ctx: { phoneNumberId: string; convId: string; waId: string; clienteNombre: string; toolUseId: string },
+  ctx: {
+    phoneNumberId: string;
+    convId: string;
+    waId: string;
+    clienteNombre: string;
+    toolUseId: string;
+    reagendadaDeId?: string;
+  },
   input: CrearHoldInput
 ): Promise<CrearHoldResultado> {
   const clienteAgenda = await queryOneRetry<ClientesAgendaRow>(
@@ -102,14 +109,14 @@ export async function crearHold(
     await query(
       `INSERT INTO reservas (
          reserva_id, conv_id, wa_id, phone_number_id, cliente_id, tipo_cita_id,
-         inicio, fin, nombre, telefono, event_id, calendar_id, estado, notificado, creado_en
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'activa', false, now())
+         inicio, fin, nombre, telefono, event_id, calendar_id, estado, notificado, creado_en, reagendada_de_id
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'activa', false, now(), $13)
        ON CONFLICT (reserva_id) DO UPDATE SET
          conv_id = EXCLUDED.conv_id, wa_id = EXCLUDED.wa_id, phone_number_id = EXCLUDED.phone_number_id,
          cliente_id = EXCLUDED.cliente_id, tipo_cita_id = EXCLUDED.tipo_cita_id,
          inicio = EXCLUDED.inicio, fin = EXCLUDED.fin, nombre = EXCLUDED.nombre,
          telefono = EXCLUDED.telefono, event_id = EXCLUDED.event_id, calendar_id = EXCLUDED.calendar_id,
-         estado = 'activa', notificado = false`,
+         estado = 'activa', notificado = false, reagendada_de_id = EXCLUDED.reagendada_de_id`,
       [
         ctx.toolUseId,
         ctx.convId,
@@ -123,6 +130,7 @@ export async function crearHold(
         input.telefono,
         eventId,
         calendar_id,
+        ctx.reagendadaDeId ?? null,
       ]
     );
 

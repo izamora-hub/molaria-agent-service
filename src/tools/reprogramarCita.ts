@@ -32,7 +32,10 @@ export async function reprogramarCita(
   // Orden deliberado: crea el hold NUEVO antes de tocar el viejo. Si el hueco
   // nuevo ya no esta libre (o falla Calendar), la reserva original queda intacta
   // y el paciente conserva su cita - un fallo aqui no debe dejarlo sin ninguna.
-  const hold = await crearHold(ctx, {
+  // reagendadaDeId enlaza la fila nueva con la que se cancela justo debajo -
+  // sin esto, una reprogramacion y una cancelacion+reserva-nueva independiente
+  // son indistinguibles en los datos (metrica "citas reagendadas", 2026-08-19).
+  const hold = await crearHold({ ...ctx, reagendadaDeId: reservaAnterior.id }, {
     inicio: input.nuevo_inicio,
     fin: input.nuevo_fin,
     tipo_cita: tipoCitaTexto,

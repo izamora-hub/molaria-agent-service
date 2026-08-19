@@ -60,11 +60,25 @@ panelMetricasRoutes.get('/metricas', requireSesionPanel, async (req: RequestConS
     [cliente.id, desde, hasta]
   );
 
+  // reagendada_de_id enlaza la reserva nueva con la cancelada al reprogramar
+  // (crearHold.ts / reprogramarCita.ts, 2026-08-19) - sin ese enlace una
+  // reprogramacion es indistinguible de una cancelacion+reserva independiente.
+  const reagendadas = await queryOnePanel<{ n: string }>(
+    `SELECT count(*) AS n
+     FROM reservas r
+     WHERE r.cliente_id = $1
+       AND r.reagendada_de_id IS NOT NULL
+       AND r.creado_en >= $2::date
+       AND r.creado_en < ($3::date + interval '1 day')`,
+    [cliente.id, desde, hasta]
+  );
+
   res.json({
     ok: true,
     desde,
     hasta,
     conversaciones_atendidas: Number(conv?.n ?? 0),
     citas_creadas: Number(citas?.n ?? 0),
+    citas_reagendadas: Number(reagendadas?.n ?? 0),
   });
 });

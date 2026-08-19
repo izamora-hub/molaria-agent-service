@@ -83,6 +83,7 @@ export const panelPageHtml = `<!doctype html>
       <div id="stats">
         <div class="stat"><div class="num" id="numConversaciones">&ndash;</div><div class="label">Conversaciones atendidas</div></div>
         <div class="stat"><div class="num" id="numCitas">&ndash;</div><div class="label">Citas creadas</div></div>
+        <div class="stat"><div class="num" id="numReagendadas">&ndash;</div><div class="label">Citas reagendadas</div></div>
       </div>
     </div>
     <div id="vistaConversaciones" style="display:none">
@@ -161,6 +162,7 @@ async function cargarMetricas() {
   if (status !== 200) return;
   $('numConversaciones').textContent = body.conversaciones_atendidas;
   $('numCitas').textContent = body.citas_creadas;
+  $('numReagendadas').textContent = body.citas_reagendadas;
 }
 
 $('verMetricas').addEventListener('click', cargarMetricas);
