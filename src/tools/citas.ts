@@ -116,10 +116,14 @@ export async function buscarReservaCancelable(
   // clinica sin wa_id (sincronizadas desde el calendario, ver ConciliarEventos)
   // - estas ultimas se filtran por telefono a continuacion, nunca por un
   // argumento del modelo.
+  // inicio >= now(): una cita ya pasada sigue con estado='activa' (nada la
+  // marca como completada), pero no tiene sentido ofrecerla para cancelar o
+  // reprogramar - confunde al paciente con fechas que ya sucedieron.
   const candidatas = await queryRetry<ReservaRow>(
     `SELECT * FROM reservas
      WHERE estado = 'activa' AND phone_number_id = $1
        AND (wa_id = $2 OR wa_id IS NULL)
+       AND inicio >= now()
      ORDER BY inicio`,
     [phoneNumberId, waId]
   );
