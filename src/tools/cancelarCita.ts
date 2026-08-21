@@ -13,7 +13,7 @@ export async function cancelarCita(
 ): Promise<CancelarCitaResultado> {
   const cliente = await buscarCliente(ctx.phoneNumberId);
 
-  const resultado = await buscarReservaCancelable(cliente, ctx.phoneNumberId, input.telefono, input.inicio);
+  const resultado = await buscarReservaCancelable(cliente, ctx.phoneNumberId, ctx.waId, input.inicio);
   if (!resultado.ok) return resultado;
 
   const reserva = resultado.reserva;

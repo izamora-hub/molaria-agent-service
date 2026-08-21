@@ -21,7 +21,7 @@ export interface ReservaRow {
   id: string;
   reserva_id: string;
   conv_id: string;
-  wa_id: string;
+  wa_id: string | null;
   phone_number_id: string;
   cliente_id: string | null;
   tipo_cita_id: string | null;
@@ -69,25 +69,63 @@ export type BuscarReservaResultado =
       nota: string;
     };
 
-// Pasos 1-4 del procedimiento: busca la(s) reserva(s) activa(s) que casen con
-// telefono (y, si hay mas de una, con el inicio exacto pasado para desambiguar),
-// y aplica la ventana de cancelacion del cliente.
+// SEC-013 (BOLA, 2026-08-21): el identificador del paciente NUNCA viene del
+// modelo (que solo lo extraeria del texto del mensaje, algo que cualquiera
+// puede dictar para operar sobre la cita de otro). Viene del wa_id del
+// remitente, ya validado por firma HMAC en el webhook antes de llegar aqui
+// (ver PrepararFirma/VerificarFirmaRemota en el n8n). Fallo cerrado: sin
+// wa_id no hay identidad que autorizar, y la funcion no debe intentar nada.
+const PREFIJO_PAIS_DEFECTO = '34';
+
+// Homologa un numero de telefono local (9 digitos, formato habitual con el
+// que un paciente espanol dicta su numero o una clinica lo escribe a mano en
+// el calendario) con un wa_id de WhatsApp (que siempre lleva el prefijo de
+// pais). Misma normalizacion que ConciliarEventos usa en el workflow de
+// recordatorios (workflow-molaria-recordatorios.json) para el mismo problema,
+// para no tener dos criterios distintos de "es el mismo numero" en el sistema.
+function normalizarInternacional(raw: string): string {
+  const digitos = raw.replace(/\D/g, '');
+  if (!digitos) return '';
+  return digitos.length === 9 ? PREFIJO_PAIS_DEFECTO + digitos : digitos;
+}
+
+function telefonoCoincideConWaId(telefono: string, waId: string): boolean {
+  const a = normalizarInternacional(telefono);
+  const b = normalizarInternacional(waId);
+  return a !== '' && a === b;
+}
+
+// Pasos 1-4 del procedimiento: busca la(s) reserva(s) activa(s) que pertenecen
+// al remitente (y, si hay mas de una, con el inicio exacto pasado para
+// desambiguar), y aplica la ventana de cancelacion del cliente.
 export async function buscarReservaCancelable(
   cliente: ClienteRow,
   phoneNumberId: string,
-  telefono: string,
+  waId: string,
   inicioDesambiguar: string | undefined
 ): Promise<BuscarReservaResultado> {
-  // Comparacion por digitos, no por string exacto: el telefono guardado puede
-  // llevar espacios/guiones (ej. citas sincronizadas a mano desde el calendario,
-  // ver ConciliarEventos) y no tiene por que coincidir caracter a caracter con
-  // lo que el paciente teclea esta vez.
-  let reservas = await queryRetry<ReservaRow>(
+  if (!waId) {
+    // No deberia ocurrir nunca (AgentRunRequest.wa_id es obligatorio y viene
+    // del webhook), pero si pasara, fallar cerrado en vez de operar sin
+    // identidad verificada del remitente.
+    throw new Error('buscarReservaCancelable: falta wa_id del remitente en el contexto; no se puede autorizar sin el.');
+  }
+
+  // Candidatas: reservas del propio remitente (wa_id real, puesto por
+  // crearHold en el momento de reservar) o reservas metidas a mano por la
+  // clinica sin wa_id (sincronizadas desde el calendario, ver ConciliarEventos)
+  // - estas ultimas se filtran por telefono a continuacion, nunca por un
+  // argumento del modelo.
+  const candidatas = await queryRetry<ReservaRow>(
     `SELECT * FROM reservas
      WHERE estado = 'activa' AND phone_number_id = $1
-       AND regexp_replace(telefono, '\\D', '', 'g') = regexp_replace($2, '\\D', '', 'g')
+       AND (wa_id = $2 OR wa_id IS NULL)
      ORDER BY inicio`,
-    [phoneNumberId, telefono]
+    [phoneNumberId, waId]
+  );
+
+  let reservas = candidatas.filter((r) =>
+    r.wa_id !== null ? r.wa_id === waId : telefonoCoincideConWaId(r.telefono, waId)
   );
 
   const clienteAgenda = await queryOneRetry<{ timezone: string | null }>(
@@ -111,7 +149,7 @@ export async function buscarReservaCancelable(
     return {
       ok: false,
       error: 'sin_cita',
-      nota: 'No encuentro ninguna cita activa con ese telefono. Diselo al paciente con naturalidad y confirma que el telefono es el que uso al reservar.',
+      nota: 'No encuentro ninguna cita activa asociada a este numero de WhatsApp. Diselo al paciente con naturalidad; si reservo desde otro numero, debe escribir desde ese numero o contactar directamente con la clinica.',
     };
   }
 
@@ -120,7 +158,7 @@ export async function buscarReservaCancelable(
       ok: false,
       error: 'ambiguo',
       opciones: reservas.map((r) => ({ inicio: r.inicio, legible: legible(r.inicio, tz) })),
-      nota: 'Hay mas de una cita activa con ese telefono. Preguntale al paciente por cual fecha (usa los valores "legible"), y vuelve a invocar la herramienta pasando el "inicio" EXACTO de la opcion elegida, copiado literalmente.',
+      nota: 'Este numero tiene mas de una cita activa. Preguntale al paciente por cual fecha (usa los valores "legible"), y vuelve a invocar la herramienta pasando el "inicio" EXACTO de la opcion elegida, copiado literalmente.',
     };
   }
 

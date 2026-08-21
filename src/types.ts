@@ -53,12 +53,12 @@ export interface CrearHoldInput {
 }
 
 export interface CancelarCitaInput {
-  telefono: string;
+  // SEC-013: el identificador del paciente es el wa_id del remitente (llega
+  // por ctx, no por input) - el modelo nunca aporta el telefono.
   inicio?: string;
 }
 
 export interface ReprogramarCitaInput {
-  telefono: string;
   inicio?: string;
   nuevo_inicio: string;
   nuevo_fin: string;

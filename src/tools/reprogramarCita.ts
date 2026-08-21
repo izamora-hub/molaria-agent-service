@@ -18,7 +18,7 @@ export async function reprogramarCita(
 
   // Pasos 1-4: misma busqueda/desambiguacion/ventana que cancelar_cita. OJO: esto
   // solo localiza la reserva, todavia NO la cancela - ver nota de orden abajo.
-  const resultado = await buscarReservaCancelable(cliente, ctx.phoneNumberId, input.telefono, input.inicio);
+  const resultado = await buscarReservaCancelable(cliente, ctx.phoneNumberId, ctx.waId, input.inicio);
   if (!resultado.ok) return resultado;
 
   const reservaAnterior = resultado.reserva;
@@ -40,14 +40,14 @@ export async function reprogramarCita(
     fin: input.nuevo_fin,
     tipo_cita: tipoCitaTexto,
     nombre: reservaAnterior.nombre,
-    telefono: input.telefono,
+    telefono: reservaAnterior.telefono,
   });
 
   if (!hold.ok) {
     return {
       ok: false,
       error: 'hueco_no_disponible',
-      nota: 'Ese hueco ya no esta libre. La cita original del paciente NO se ha tocado. Disculpate brevemente, invoca consultar_disponibilidad para ofrecer otros huecos y vuelve a invocar reprogramar_cita con el mismo telefono cuando elija uno nuevo.',
+      nota: 'Ese hueco ya no esta libre. La cita original del paciente NO se ha tocado. Disculpate brevemente, invoca consultar_disponibilidad para ofrecer otros huecos y vuelve a invocar reprogramar_cita cuando elija uno nuevo.',
     };
   }
 
@@ -61,7 +61,7 @@ export async function reprogramarCita(
     const envio = await enviarEmail({
       to: resumenEmail,
       subject: `Cita reprogramada: ${reservaAnterior.nombre}`,
-      html: `<p>El paciente <strong>${reservaAnterior.nombre}</strong> (${input.telefono}) ha movido su cita del <strong>${reservaAnterior.inicio}</strong> al <strong>${input.nuevo_inicio}</strong> a traves del agente de WhatsApp. Queda pendiente de confirmar.</p>`,
+      html: `<p>El paciente <strong>${reservaAnterior.nombre}</strong> (${reservaAnterior.telefono}) ha movido su cita del <strong>${reservaAnterior.inicio}</strong> al <strong>${input.nuevo_inicio}</strong> a traves del agente de WhatsApp. Queda pendiente de confirmar.</p>`,
     });
     if (!envio.ok) {
       await logError({
