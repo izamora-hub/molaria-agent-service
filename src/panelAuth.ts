@@ -38,6 +38,15 @@ export async function requireSesionPanel(req: RequestConSesion, res: Response, n
   next();
 }
 
+// Bloqueo de indexacion del panel (expone datos de pacientes tras login):
+// se aplica a nivel de /panel entero, no ruta por ruta, para que cubra
+// tambien /panel/auth/solicitar y /panel/auth/verificar (publicas, sin
+// requireSesionPanel, la pantalla de login es la ruta mas expuesta).
+export function noIndexPanel(_req: Request, res: Response, next: NextFunction): void {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  next();
+}
+
 // Cookie host-only (sin Domain), Secure+HttpOnly+SameSite=Lax, Path=/panel
 // (1-01 punto 3) - nunca .molaria.app para no compartirla con otros subdominios.
 export function fijarCookieSesion(res: Response, sessionId: string): void {

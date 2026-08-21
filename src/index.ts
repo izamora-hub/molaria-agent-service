@@ -12,11 +12,30 @@ import { panelAuthRoutes } from './panelAuthRoutes';
 import { panelConversacionesRoutes } from './panelConversacionesRoutes';
 import { panelMetricasRoutes } from './panelMetricasRoutes';
 import { panelPageHtml } from './panelPage';
+import { noIndexPanel } from './panelAuth';
 import { purgarCaducados, contarCaducados } from './purgarCaducados';
 import { AgentRunRequest, AltaPayload } from './types';
 
+const PANEL_HOST = 'panel.molaria.app';
+
 const app = express();
 app.use(express.json({ limit: '2mb' }));
+
+// Bloqueo de indexacion del subdominio del panel (expone datos de pacientes
+// tras login). robots.txt propio de este servicio: molaria.app en si lo
+// sirve un Worker de Cloudflare aparte, este solo debe responder Disallow
+// cuando el host es panel.molaria.app.
+app.get('/robots.txt', (req, res, next) => {
+  if (req.hostname !== PANEL_HOST) {
+    next();
+    return;
+  }
+  res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+});
+
+// Punto central (no ruta por ruta): cubre /panel, /panel/auth/* (incluidas
+// las publicas /solicitar y /verificar, sin requireSesionPanel) y /panel/api/*.
+app.use('/panel', noIndexPanel);
 app.use('/panel/auth', panelAuthRoutes);
 app.use('/panel/api', panelConversacionesRoutes);
 app.use('/panel/api', panelMetricasRoutes);
